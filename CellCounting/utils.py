@@ -80,22 +80,6 @@ class IMGs_dataset(torch.utils.data.Dataset):
             image = np.array(PIL_im)
             image = image[np.newaxis,:,:]
 
-
-
-            # image = np.transpose(image, (1, 2, 0)) #C * W * H ---->  W * H * C
-            # PIL_im = Image.fromarray(np.uint8(image), mode = 'L') #W * H * C
-            # if self.rotate:
-            #     degrees = np.array(self.degrees)
-            #     np.random.shuffle(degrees)
-            #     degree = degrees[0]
-            #     PIL_im = PIL_im.rotate(degree)
-            # if self.hflip:
-            #     PIL_im = PIL_im.transpose(Image.FLIP_LEFT_RIGHT)
-            # if self.vflip:
-            #     PIL_im = PIL_im.transpose(Image.FLIP_TOP_BOTTOM)
-            # image = np.array(PIL_im)
-            # image = np.transpose(image, (2, 0, 1)) #now C * W * H
-
         if self.normalize:
             image = image/255.0
             image = (image-0.5)/0.5

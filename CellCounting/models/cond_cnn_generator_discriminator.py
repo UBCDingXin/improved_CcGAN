@@ -23,11 +23,11 @@ class cond_cnn_generator(nn.Module):
         self.linear = nn.Linear(nz+1, 4 * 4 * ngf * 8) #4*4*512
         self.main = nn.Sequential(
             # state size: 4 x 4
-            nn.ConvTranspose2d(ngf * 8, ngf * 8, kernel_size=4, stride=2, padding=1, bias=bias), #h=4h
+            nn.ConvTranspose2d(ngf * 8, ngf * 8, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(True),
             # state size. 8 x 8
-            nn.ConvTranspose2d(ngf * 8, ngf * 4, kernel_size=4, stride=2, padding=1, bias=bias), #h=4h
+            nn.ConvTranspose2d(ngf * 8, ngf * 4, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
             nn.BatchNorm2d(ngf * 4),
             nn.ReLU(True),
             # state size. 16 x 16
@@ -66,30 +66,48 @@ class cond_cnn_discriminator(nn.Module):
         self.ngpu = ngpu
         self.ndf = ndf
         self.main = nn.Sequential(
+            # # input is (nc) x 64 x 64
+            # nn.Conv2d(nc, ndf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+            # nn.LeakyReLU(0.2, inplace=True),
+            # nn.Conv2d(ndf, ndf, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            # nn.LeakyReLU(0.2, inplace=True),
+            # # state size. (ndf) x 32 x 32
+            # nn.Conv2d(ndf, ndf*2, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+            # nn.LeakyReLU(0.2, inplace=True),
+            # nn.Conv2d(ndf*2, ndf*2, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            # nn.LeakyReLU(0.2, inplace=True),
+            # # state size. (ndf) x 16 x 16
+            # nn.Conv2d(ndf*2, ndf*4, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+            # nn.LeakyReLU(0.2, inplace=True),
+            # nn.Conv2d(ndf*4, ndf*4, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            # nn.LeakyReLU(0.2, inplace=True),
+            # # state size. (ndf*2) x 8 x 8
+            # nn.Conv2d(ndf*4, ndf*8, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+            # nn.LeakyReLU(0.2, inplace=True),
+            # nn.Conv2d(ndf*8, ndf*8, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            # nn.LeakyReLU(0.2, inplace=True),
+            # # state size. (ndf*4) x 4 x 4
+            # nn.Conv2d(ndf*8, ndf*8, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+            # nn.LeakyReLU(0.2, inplace=True),
+            # # state size. (ndf*8) x 4 x 4
+
             # input is (nc) x 64 x 64
-            nn.Conv2d(nc, ndf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+            nn.Conv2d(nc, ndf, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            nn.BatchNorm2d(ndf),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf, ndf, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            # input is ndf x 32 x 32
+            nn.Conv2d(ndf, ndf*2, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            nn.BatchNorm2d(ndf*2),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf) x 32 x 32
-            nn.Conv2d(ndf, ndf*2, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+            # input is (ndf*2) x 16 x 16
+            nn.Conv2d(ndf*2, ndf*4, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            nn.BatchNorm2d(ndf*4),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf*2, ndf*2, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+            # input is (ndf*4) x 8 x 8
+            nn.Conv2d(ndf*4, ndf*8, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
             nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf) x 16 x 16
-            nn.Conv2d(ndf*2, ndf*4, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf*4, ndf*4, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*2) x 8 x 8
-            nn.Conv2d(ndf*4, ndf*8, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf*8, ndf*8, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*4) x 4 x 4
-            nn.Conv2d(ndf*8, ndf*8, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*8) x 4 x 4
+            # input is (ndf*8) x 4 x 4
+
         )
 
         linear = [nn.Linear(ndf*8*4*4+1, 512),

@@ -81,6 +81,7 @@ def train_DCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimize
             # Measure discriminator's ability to classify real from generated samples
             prob_real = netD(batch_train_images)
             prob_fake = netD(gen_imgs.detach())
+
             real_loss = criterion(prob_real, GAN_real)
             fake_loss = criterion(prob_fake, GAN_fake)
             d_loss = (real_loss + fake_loss) / 2
