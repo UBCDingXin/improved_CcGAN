@@ -3,7 +3,7 @@
 Onenote address: https://1drv.ms/u/s!Arj2pETbYnWQo5dkN7nmDPnGFoz-aw?e=r8JhnH
 
 
-# 1. Quick Check 1: Standard DCGAN/cDCGAN/WGANGP/cWGANGP on VGG dataset (Cell Counting)
+# 1. Quick Check: Standard DCGAN/cDCGAN/WGANGP/cWGANGP on VGG dataset (Cell Counting)
 
 ## DCGAN
 ![](./images/CellCounting/DCGAN.gif)
@@ -21,6 +21,6 @@ Onenote address: https://1drv.ms/u/s!Arj2pETbYnWQo5dkN7nmDPnGFoz-aw?e=r8JhnH
 ![](./images/CellCounting/cWGANGP_normalize.gif)
 
 
-# 2. Quick Check 2: cDCGAN on MNIST without One-hot Encoding and Label Embedding
+# 2. Quick Check: cDCGAN on MNIST without One-hot Encoding and Label Embedding
 
 ![](./images/MNIST/cDCGAN.gif)
