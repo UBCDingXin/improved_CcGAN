@@ -6,5 +6,7 @@
 ![](./images/CellCounting/DCGAN.gif)
 
 ## cDCGAN without normalizing count number
-![cDCGAN](./images/CellCounting/cDCGAN_no_normalize.gif)
+![](./images/CellCounting/cDCGAN_no_normalize.gif)
 
+## cDCGAN with normalizing count number
+![](./images/CellCounting/cDCGAN_normalize.gif)
