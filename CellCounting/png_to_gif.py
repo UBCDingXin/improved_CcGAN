@@ -2,7 +2,7 @@ import os
 from PIL import Image, ImageDraw, ImageSequence
 import io
 
-GAN = 'cDCGAN'
+GAN = 'cWGANGP'
 
 path = '/home/xin/OneDrive/Working_directory/Continuous_cGAN/CellCounting/Output/saved_images/' + GAN + '_InTrain'
 
@@ -32,18 +32,3 @@ for i in range(len(steps_sorted)):
 images[0].save(gif_filename, save_all=True, append_images=images[1:], optimize=False, duration=600, loop=0)
 
 
-
-im = Image.open(gif_fullpath, "w")
-
-frames = []
-for frame in ImageSequence.Iterator(im):
-	frame = frame.convert('L')
-
-	d = ImageDraw.Draw(frame)
-	d.text((10,100), "Hello World", fill=(255))
-	del d
-
-	frames.append(frame)
-my_bytes = io.BytesIO()
-frames[0].save(my_bytes, format="GIF", save_all=True, append_images=frames[1:])
-print(my_bytes.getvalue())

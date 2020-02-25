@@ -34,7 +34,7 @@ def train_DCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimize
         gen_iterations = 0
     #end if
 
-    n_row=4
+    n_row=8
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
 
     for epoch in range(ResumeEpoch, EPOCHS_GAN):
@@ -99,7 +99,7 @@ def train_DCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimize
                     gen_imgs = gen_imgs.detach()
                 save_image(gen_imgs.data, save_DCGANimages_folder + '%d.png' % gen_iterations, nrow=n_row, normalize=True)
 
-        if save_models_folder is not None and (epoch+1) % 200 == 0:
+        if save_models_folder is not None and (epoch+1) % 500 == 0:
             save_file = save_models_folder + "/DCGAN_checkpoint_intrain/"
             if not os.path.exists(save_file):
                 os.makedirs(save_file)

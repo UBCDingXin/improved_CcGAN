@@ -12,7 +12,7 @@ import os
 
 
 NC=1
-IMG_SIZE=256
+IMG_SIZE=64
 
 ############################################################################################
 # Train WGANs
@@ -63,7 +63,7 @@ def train_WGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
         gen_iterations = 0
     #end if
 
-    n_row=4
+    n_row=8
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
 
 
@@ -121,10 +121,7 @@ def train_WGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
             optimizerG.step()
             gen_iterations += 1
 
-            print("WGAN: [Step %d/%d] [Epoch %d/%d] [G_iter %d] [D loss: %.4f] [G loss: %.4f][W Dist: %.4f]" % (batch_idx, len(trainloader), epoch +1, EPOCHS_GAN, gen_iterations, D_cost.item(), G_cost.item(), Wasserstein_D))
-
-#            if batch_idx%20 == 0:
-#                print("WGAN: [Step %d/%d] [Epoch %d/%d] [G_iter %d] [D loss: %.4f] [G loss: %.4f][W Dist: %.4f]" % (batch_idx+1, len(trainloader), epoch +1, EPOCHS_GAN, gen_iterations, D_cost.item(), G_cost.item(), Wasserstein_D))
+            print("WGANGP: [Epoch %d/%d] [G_iter %d] [D loss: %.4f] [G loss: %.4f][W Dist: %.4f]" % (epoch +1, EPOCHS_GAN, gen_iterations, D_cost.item(), G_cost.item(), Wasserstein_D))
 
             if gen_iterations % 100 == 0:
                 with torch.no_grad():
@@ -133,7 +130,7 @@ def train_WGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
                 save_image(gen_imgs.data, save_GANimages_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
         #end for batch_idx
 
-        if save_models_folder is not None and (epoch+1) % 50 == 0:
+        if save_models_folder is not None and (epoch+1) % 500 == 0:
             save_file = save_models_folder + "/WGANGP_checkpoint_intrain/"
             if not os.path.exists(save_file):
                 os.makedirs(save_file)

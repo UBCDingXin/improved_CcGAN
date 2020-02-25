@@ -37,7 +37,7 @@ def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
         gen_iterations = 0
     #end if
 
-    n_row=4
+    n_row=8
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
     y_fixed = np.random.randint(MIN_COUNT, MAX_COUNT, n_row**2)
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
@@ -104,7 +104,7 @@ def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
                     gen_imgs = gen_imgs.detach()
                 save_image(gen_imgs.data, save_cDCGANimages_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
 
-        if save_models_folder is not None and (epoch+1) % 100 == 0:
+        if save_models_folder is not None and (epoch+1) % 500 == 0:
             save_file = save_models_folder + "/cDCGAN_checkpoint_intrain/"
             if not os.path.exists(save_file):
                 os.makedirs(save_file)

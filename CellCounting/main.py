@@ -88,8 +88,6 @@ ADAM_beta2 = 0.999
 #-------------------------------
 # sampling parameters
 samp_batch_size = args.samp_batch_size #batch size for sampling from GAN or enhanced sampler
-DR_comp_batch_size = 10
-assert samp_batch_size>=DR_comp_batch_size
 
 #-------------------------------
 # seeds
@@ -238,7 +236,7 @@ elif args.GAN == "cWGANGP"  and not os.path.isfile(Filename_GAN):
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
     # Start training
-    netG, netD, optimizerG, optimizerD = train_WGANGP(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, mean_count=mean_count, std_count=std_count)
+    netG, netD, optimizerG, optimizerD = train_cWGANGP(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, mean_count=mean_count, std_count=std_count)
 
     # store model
     torch.save({

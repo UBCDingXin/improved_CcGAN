@@ -49,7 +49,7 @@ def calc_gradient_penalty_WGAN(netD, real_data, fake_data, batch_train_counts_da
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
     return gradient_penalty
 
-def train_WGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = None, ResumeEpoch = 0, device="cuda", mean_count=0, std_count=1):
+def train_cWGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = None, ResumeEpoch = 0, device="cuda", mean_count=0, std_count=1):
 
     netG = netG.to(device)
     netD = netD.to(device)
@@ -67,7 +67,7 @@ def train_WGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
         gen_iterations = 0
     #end if
 
-    n_row=4
+    n_row=8
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
     y_fixed = np.random.randint(MIN_COUNT, MAX_COUNT, n_row**2)
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
@@ -123,25 +123,22 @@ def train_WGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
             netG.zero_grad()
             # Generate fake images
             z = torch.randn(BATCH_SIZE, GAN_Latent_Length, dtype=torch.float).to(device)
-            gen_imgs = netG(z)
-            G_cost = - netD(gen_imgs).mean()
+            gen_imgs = netG(z, batch_train_counts)
+            G_cost = - netD(gen_imgs, batch_train_counts).mean()
             G_cost.backward()
             optimizerG.step()
             gen_iterations += 1
 
-            print("WGAN: [Step %d/%d] [Epoch %d/%d] [G_iter %d] [D loss: %.4f] [G loss: %.4f][W Dist: %.4f]" % (batch_idx, len(trainloader), epoch +1, EPOCHS_GAN, gen_iterations, D_cost.item(), G_cost.item(), Wasserstein_D))
-
-#            if batch_idx%20 == 0:
-#                print("WGAN: [Step %d/%d] [Epoch %d/%d] [G_iter %d] [D loss: %.4f] [G loss: %.4f][W Dist: %.4f]" % (batch_idx+1, len(trainloader), epoch +1, EPOCHS_GAN, gen_iterations, D_cost.item(), G_cost.item(), Wasserstein_D))
+            print("cWGANGP: [Epoch %d/%d] [G_iter %d] [D loss: %.4f] [G loss: %.4f][W Dist: %.4f]" % (epoch +1, EPOCHS_GAN, gen_iterations, D_cost.item(), G_cost.item(), Wasserstein_D))
 
             if gen_iterations % 100 == 0:
                 with torch.no_grad():
-                    gen_imgs = netG(z_fixed)
+                    gen_imgs = netG(z_fixed, y_fixed)
                     gen_imgs = gen_imgs.detach()
                 save_image(gen_imgs.data, save_GANimages_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
         #end for batch_idx
 
-        if save_models_folder is not None and (epoch+1) % 50 == 0:
+        if save_models_folder is not None and (epoch+1) % 500 == 0:
             save_file = save_models_folder + "/cWGANGP_checkpoint_intrain/"
             if not os.path.exists(save_file):
                 os.makedirs(save_file)
