@@ -14,12 +14,6 @@ Onenote address: https://1drv.ms/u/s!Arj2pETbYnWQo5dkN7nmDPnGFoz-aw?e=r8JhnH
 ## cDCGAN (cell count is a 16-bit integer)
 ![](./images/CellCounting/cDCGAN_16bit.gif)
 
-## WGANGP
-![](./images/CellCounting/WGANGP.gif)
-
-## cWGANGP (cell count is a 16-bit integer)
-![](./images/CellCounting/cWGANGP_16bit.gif)
-
 
 # 2. Quick Check: cDCGAN on MNIST without One-hot Encoding and Label Embedding
 
@@ -28,7 +22,5 @@ Onenote address: https://1drv.ms/u/s!Arj2pETbYnWQo5dkN7nmDPnGFoz-aw?e=r8JhnH
 
 ## cDCGAN (label is a 16-bit integer)
 ![](./images/MNIST/cDCGAN_16bit.gif)
-
-
 
 # 3. WIKI Set
