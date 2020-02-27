@@ -8,19 +8,27 @@ Onenote address: https://1drv.ms/u/s!Arj2pETbYnWQo5dkN7nmDPnGFoz-aw?e=r8JhnH
 ## DCGAN
 ![](./images/CellCounting/DCGAN.gif)
 
-## cDCGAN without normalizing count number
-![](./images/CellCounting/cDCGAN_no_normalize.gif)
+## cDCGAN (cell count is a float number)
+![](./images/CellCounting/cDCGAN_float.gif)
 
-## cDCGAN with normalizing count number
-![](./images/CellCounting/cDCGAN_normalize.gif)
+## cDCGAN (cell count is a 16-bit integer)
+![](./images/CellCounting/cDCGAN_16bit.gif)
 
 ## WGANGP
 ![](./images/CellCounting/WGANGP.gif)
 
-## cWGANGP with normalizing count number
-![](./images/CellCounting/cWGANGP_normalize.gif)
+## cWGANGP (cell count is a 16-bit integer)
+![](./images/CellCounting/cWGANGP_16bit.gif)
 
 
 # 2. Quick Check: cDCGAN on MNIST without One-hot Encoding and Label Embedding
 
-![](./images/MNIST/cDCGAN.gif)
+## cDCGAN (label is a float number)
+![](./images/MNIST/cDCGAN_float.gif)
+
+## cDCGAN (label is a 16-bit integer)
+![](./images/MNIST/cDCGAN_16bit.gif)
+
+
+
+# 3. WIKI Set
