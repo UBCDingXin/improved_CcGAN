@@ -14,8 +14,8 @@ import os
 NC=1
 IMG_SIZE=64
 
-MIN_COUNT=74
-MAX_COUNT=317
+MIN_LABEL=74
+MAX_LABEL=317
 
 ############################################################################################
 # Train WGANs
@@ -49,7 +49,7 @@ def calc_gradient_penalty_WGAN(netD, real_data, fake_data, batch_train_counts_da
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
     return gradient_penalty
 
-def train_cWGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = None, ResumeEpoch = 0, device="cuda", mean_count=0, std_count=1):
+def train_cWGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = None, ResumeEpoch = 0, device="cuda", shift_label = 0, max_label = 1):
 
     netG = netG.to(device)
     netD = netD.to(device)
@@ -69,9 +69,10 @@ def train_cWGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimi
 
     n_row=8
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
-    y_fixed = np.random.randint(MIN_COUNT, MAX_COUNT, n_row**2)
+    y_fixed = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2).astype(np.float)
+    y_fixed += shift_label
+    y_fixed /= max_label
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
-    y_fixed = (y_fixed-mean_count)/std_count
 
     for epoch in range(ResumeEpoch, EPOCHS_GAN):
 
@@ -167,7 +168,7 @@ def SampcWGAN(netG, GAN_Latent_Length = 128, NFAKE = 10000, batch_size = 500, de
         tmp = 0
         while tmp < NFAKE:
             z = torch.randn(batch_size, GAN_Latent_Length, dtype=torch.float).to(device)
-            y = np.random.randint(MIN_COUNT, MAX_COUNT, n_row**2)
+            y = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2)
             y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
             y = (y - mean_count)/std_count
             batch_fake_images = netG(z, y)

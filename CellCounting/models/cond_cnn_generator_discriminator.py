@@ -10,7 +10,57 @@ import numpy as np
 NC=1
 IMG_SIZE=64
 
+def float_to_binary(x, m, n):
+    """Convert the float value `x` to a binary string of length `m + n`
+    where the first `m` binary digits are the integer part and the last
+    'n' binary digits are the fractional part of `x`.
 
+    https://stackoverflow.com/questions/51843297/convert-real-numbers-to-binary-and-vice-versa-in-python
+    """
+
+    if x>0:
+        is_positive = True
+    else:
+        x = abs(x)
+        is_positive = False
+
+    # x_scaled = round(x * 2 ** n)
+    x_scaled = int(x * 2 ** n)
+
+    if is_positive:
+        return '{:0{}b}'.format(x_scaled, m + n)
+    else:
+        return '-' + '{:0{}b}'.format(x_scaled, m + n)
+
+
+bin_m = 4
+bin_n = 16
+def convert_labels(labels):
+    if labels.is_cuda:
+        labels_np = labels.data.cpu().numpy().reshape(-1)
+    else:
+        labels_np = labels.data.numpy().reshape(-1)
+    labels_binary = np.zeros((labels_np.shape[0],bin_m+bin_n))
+    for i in range(labels_np.shape[0]):
+        label_bin = float_to_binary(labels_np[i], bin_m, bin_n)
+        label_bin = list(label_bin)
+        if label_bin[0] != "-":
+            is_positive = True
+        else:
+            is_positive = False
+        label_bin = np.array([int(j) for j in label_bin if j != "-"])
+        if is_positive:
+            labels_binary[i,:] = label_bin
+        else:
+            labels_binary[i,:] = label_bin * -1
+    labels_binary = torch.from_numpy(labels_binary)
+    labels_binary = labels_binary.float()
+    if labels.is_cuda:
+        labels_binary = labels_binary.cuda()
+    return labels_binary
+
+
+label_width = bin_m+bin_n
 default_bias = True
 #########################################################
 # genearator
@@ -20,7 +70,7 @@ class cond_cnn_generator(nn.Module):
         self.nz = nz
         self.ngpu = ngpu
         self.ngf =ngf
-        self.linear = nn.Linear(nz+1, 4 * 4 * ngf * 8) #4*4*512
+        self.linear = nn.Linear(nz+label_width, 4 * 4 * ngf * 8) #4*4*512
         self.main = nn.Sequential(
             # state size: 4 x 4
             nn.ConvTranspose2d(ngf * 8, ngf * 8, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
@@ -47,6 +97,8 @@ class cond_cnn_generator(nn.Module):
     def forward(self, z, y):
         z = z.view(-1, self.nz)
         y = y.view(-1, 1)
+        y = convert_labels(y)
+
         z = torch.cat((z, y), dim=1)
         if z.is_cuda and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.linear, z, range(self.ngpu))
@@ -110,7 +162,7 @@ class cond_cnn_discriminator(nn.Module):
 
         )
 
-        linear = [nn.Linear(ndf*8*4*4+1, 512),
+        linear = [nn.Linear(ndf*8*4*4+label_width, 512),
                   nn.BatchNorm1d(512),
                   nn.ReLU(),
                   nn.Linear(512,1)]
@@ -120,6 +172,8 @@ class cond_cnn_discriminator(nn.Module):
 
     def forward(self, x, y):
         y = y.view(-1, 1)
+        y = convert_labels(y)
+
         if x.is_cuda and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.main, x, range(self.ngpu))
             output = output.view(-1, self.ndf*8*4*4)

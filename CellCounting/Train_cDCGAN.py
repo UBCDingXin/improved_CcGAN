@@ -11,14 +11,14 @@ import os
 NC=1
 IMG_SIZE=64
 
-MIN_COUNT=74
-MAX_COUNT=317
+MIN_LABEL=74
+MAX_LABEL=317
 
 
 ############################################################################################
 # Train DCGAN
 
-def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_cDCGANimages_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", mean_count=0, std_count=1):
+def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_cDCGANimages_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", shift_count = 0, max_count = 1):
 
 
     netG = netG.to(device)
@@ -39,10 +39,11 @@ def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
 
     n_row=8
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
-    y_fixed = np.random.randint(MIN_COUNT, MAX_COUNT, n_row**2)
+    y_fixed = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2).astype(np.float)
+    y_fixed += shift_label
+    y_fixed /= max_label
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
-    y_fixed = (y_fixed-mean_count)/std_count
-
+    
     for epoch in range(ResumeEpoch, EPOCHS_GAN):
         for batch_idx, (batch_train_images, batch_train_counts) in enumerate(trainloader):
 
@@ -104,7 +105,7 @@ def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
                     gen_imgs = gen_imgs.detach()
                 save_image(gen_imgs.data, save_cDCGANimages_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
 
-        if save_models_folder is not None and (epoch+1) % 500 == 0:
+        if save_models_folder is not None and (epoch+1) % 100 == 0:
             save_file = save_models_folder + "/cDCGAN_checkpoint_intrain/"
             if not os.path.exists(save_file):
                 os.makedirs(save_file)
@@ -134,7 +135,7 @@ def SampcDCGAN(netG, GAN_Latent_Length = 128, NFAKE = 10000, batch_size = 500, d
         tmp = 0
         while tmp < NFAKE:
             z = torch.randn(batch_size, GAN_Latent_Length, dtype=torch.float).to(device)
-            y = np.random.randint(MIN_COUNT, MAX_COUNT, n_row**2)
+            y = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2)
             y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
             y = (y - mean_count)/std_count
             batch_fake_images = netG(z, y)

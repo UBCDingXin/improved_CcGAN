@@ -11,15 +11,15 @@
 
 
 # echo "-------------------------------------------------------------------------------------------------"
-# echo "cDCGAN normalize count"
-# python3 main.py --GAN cDCGAN --transform --normalize_count --epoch_gan 1000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0
+# echo "WGANGP"
+# python3 main.py --GAN WGANGP --transform --epoch_gan 2000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0
+
+
+# echo "-------------------------------------------------------------------------------------------------"
+# echo "cWGANGP"
+# python3 main.py --GAN cWGANGP --transform --epoch_gan 1000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0
 
 
 echo "-------------------------------------------------------------------------------------------------"
-echo "WGANGP"
-python3 main.py --GAN WGANGP --transform --normalize_count --epoch_gan 2000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0
-
-
-echo "-------------------------------------------------------------------------------------------------"
-echo "cWGANGP normalize count"
-python3 main.py --GAN cWGANGP --transform --normalize_count --epoch_gan 2000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0
+echo "Continuous_cDCGAN"
+CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --dim_gan 100 --epoch_gan 1000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 48 --resumeTrain_gan 0
