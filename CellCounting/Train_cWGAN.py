@@ -159,7 +159,7 @@ def train_cWGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimi
 
 #--------------------------------------------------------------------------------
 # Sample WGAN and WGAN-GP
-def SampcWGAN(netG, GAN_Latent_Length = 128, NFAKE = 10000, batch_size = 500, device="cuda", mean_count=0, std_count=1):
+def SampcWGAN(netG, GAN_Latent_Length = 128, NFAKE = 10000, batch_size = 500, device="cuda", shift_label = 0, max_label = 1):
     raw_fake_images = np.zeros((NFAKE+batch_size, NC, IMG_SIZE, IMG_SIZE))
     raw_fake_counts = np.zeros(NFAKE+batch_size, dtype=np.float)
     netG=netG.to(device)
@@ -170,7 +170,8 @@ def SampcWGAN(netG, GAN_Latent_Length = 128, NFAKE = 10000, batch_size = 500, de
             z = torch.randn(batch_size, GAN_Latent_Length, dtype=torch.float).to(device)
             y = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2)
             y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
-            y = (y - mean_count)/std_count
+            y += shift_label
+            y /= max_label
             batch_fake_images = netG(z, y)
             raw_fake_images[tmp:(tmp+batch_size)] = batch_fake_images.cpu().detach().numpy()
             raw_fake_counts[tmp:(tmp+batch_size)] = y.cpu().view(-1).detach().numpy()

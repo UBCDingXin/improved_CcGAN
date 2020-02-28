@@ -33,9 +33,7 @@ def float_to_binary(x, m, n):
         return '-' + '{:0{}b}'.format(x_scaled, m + n)
 
 
-bin_m = 4
-bin_n = 16
-def convert_labels(labels):
+def convert_labels(labels, bin_m = 16, bin_n = 16):
     if labels.is_cuda:
         labels_np = labels.data.cpu().numpy().reshape(-1)
     else:
@@ -60,17 +58,19 @@ def convert_labels(labels):
     return labels_binary
 
 
-label_width = bin_m+bin_n
 default_bias = True
 #########################################################
 # genearator
 class cond_cnn_generator(nn.Module):
-    def __init__(self, ngpu=1, nz=128, ngf=64, nc=NC, bias = default_bias):
+    def __init__(self, ngpu=1, nz=128, ngf=64, nc=NC, bias = default_bias, b_int_digits=16, b_dec_digits=16):
         super(cond_cnn_generator, self).__init__()
         self.nz = nz
         self.ngpu = ngpu
         self.ngf =ngf
-        self.linear = nn.Linear(nz+label_width, 4 * 4 * ngf * 8) #4*4*512
+        self.b_int_digits = b_int_digits
+        self.b_dec_digits = b_dec_digits
+
+        self.linear = nn.Linear(nz+b_int_digits+b_dec_digits, 4 * 4 * ngf * 8) #4*4*512
         self.main = nn.Sequential(
             # state size: 4 x 4
             nn.ConvTranspose2d(ngf * 8, ngf * 8, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
@@ -97,7 +97,7 @@ class cond_cnn_generator(nn.Module):
     def forward(self, z, y):
         z = z.view(-1, self.nz)
         y = y.view(-1, 1)
-        y = convert_labels(y)
+        y = convert_labels(y, self.b_int_digits, self.b_dec_digits)
 
         z = torch.cat((z, y), dim=1)
         if z.is_cuda and self.ngpu > 1:
@@ -113,10 +113,14 @@ class cond_cnn_generator(nn.Module):
 #########################################################
 # discriminator
 class cond_cnn_discriminator(nn.Module):
-    def __init__(self, use_sigmoid = True, ngpu=1, nc=NC, ndf=64, bias = default_bias):
+    def __init__(self, use_sigmoid = True, ngpu=1, nc=NC, ndf=64, bias = default_bias, b_int_digits=16, b_dec_digits=16):
         super(cond_cnn_discriminator, self).__init__()
         self.ngpu = ngpu
         self.ndf = ndf
+        self.b_int_digits = b_int_digits
+        self.b_dec_digits = b_dec_digits
+
+
         self.main = nn.Sequential(
             # # input is (nc) x 64 x 64
             # nn.Conv2d(nc, ndf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
@@ -162,7 +166,7 @@ class cond_cnn_discriminator(nn.Module):
 
         )
 
-        linear = [nn.Linear(ndf*8*4*4+label_width, 512),
+        linear = [nn.Linear(ndf*8*4*4+b_int_digits+b_dec_digits, 512),
                   nn.BatchNorm1d(512),
                   nn.ReLU(),
                   nn.Linear(512,1)]
@@ -172,7 +176,7 @@ class cond_cnn_discriminator(nn.Module):
 
     def forward(self, x, y):
         y = y.view(-1, 1)
-        y = convert_labels(y)
+        y = convert_labels(y, self.b_int_digits, self.b_dec_digits)
 
         if x.is_cuda and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.main, x, range(self.ngpu))

@@ -8,6 +8,7 @@ from torchvision.utils import save_image
 import numpy as np
 import os
 import timeit
+from torch.utils.tensorboard import SummaryWriter
 
 NC=1
 IMG_SIZE=64
@@ -18,10 +19,14 @@ MAX_LABEL=317
 
 ############################################################################################
 # Train Continuous cDCGAN
-def train_Continuous_cDCGAN(train_labels, kernel_sigma, epoch_GAN, dim_GAN, trainloader, netG, netD, optimizerG, optimizerD, save_images_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", shift_label = 0, max_label = 1):
+def train_Continuous_cDCGAN(train_labels, kernel_sigma, epoch_GAN, dim_GAN, trainloader, netG, netD, optimizerG, optimizerD, save_images_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", shift_label = 0, max_label = 1, tfboard_writer=None):
 
+    # if normalize labels, let labels in [0,1]
     train_labels += shift_label
     train_labels /= max_label
+
+    if max_label==1:
+        train_labels = (train_labels-0.5)/0.5 # to [-1,1]
 
     # kernels stuffs: assume Gaussian kernel
     train_labels = train_labels.reshape(-1) #do not shuffle train_labels because its order matters
@@ -31,33 +36,60 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, epoch_GAN, dim_GAN, trai
         diff_abs = np.abs(train_labels-label)
         return np.argsort(diff_abs)[0]
 
-    exp_y_diff_square = np.identity(n_train) #in sum(Kernel(y_l-y_i-epsilon)); exp(-(y_l-y_i)**2/(2*kernel_sigma**2))
+    # exp_y_diff_square = np.identity(n_train) #in sum(Kernel(y_l-y_i-epsilon)); exp(-(y_l-y_i)**2/(2*kernel_sigma**2))
+    # for l in range(n_train):
+    #     for i in range(l+1, n_train):
+    #         exp_y_diff_square[l,i] = np.clip(np.exp(-(train_labels[l]-train_labels[i])**2/(2*kernel_sigma**2)), 1e-20, 1e+20)
+    # i_lower = np.tril_indices(n_train, -1)
+    # exp_y_diff_square[i_lower] = exp_y_diff_square.T[i_lower] #copy the upper triangle to the lower triangle
+    #
+    # exp_y_diff_square_dict = dict() #key: index of y_i; value: an array of exp(-(y_l-y_i)**2/(2*kernel_sigma**2)), l=1,...,n_train
+    # for i in range(n_train):
+    #     exp_y_diff_square_dict[i] = exp_y_diff_square[:,i]
+    #
+    # exp_y_diff = np.identity(n_train) #in sum(Kernel(y_l-y_i-epsilon)); exp((y_l-y_i)/(sigma^2))
+    # for l in range(n_train):
+    #     for i in range(n_train):
+    #         if l!=i:
+    #             exp_y_diff[l,i] = np.clip(np.exp((train_labels[l]-train_labels[i])/(kernel_sigma**2)), 1e-20, 1e+20)
+    #
+    # exp_y_diff_dict = dict() #key: index of y_i; value: an array of exp((y_l-y_i)/(kernel_sigma**2)), l=1,...,n_train
+    # for i in range(n_train):
+    #     exp_y_diff_dict[i] = exp_y_diff[:,i]
+    #
+    # def weights_yi(y_j, y_i, epsilon): # for fixed y_i and epsilon
+    #     numerator = np.clip(np.exp(-(y_j-y_i)**2/(2*kernel_sigma**2)), 1e-20, 1e+20) * np.clip(np.exp((y_j-y_i)*epsilon/(kernel_sigma**2)), 1e-20, 1e+20) * np.clip(np.exp(-epsilon**2/(2*kernel_sigma**2)), 1e-20, 1e+20)
+    #     denominator = np.sum(exp_y_diff_square_dict[label_to_index(y_i)] * (exp_y_diff_dict[label_to_index(y_i)]**epsilon) * np.clip(np.exp(-epsilon**2/(2*kernel_sigma**2)), 1e-20, 1e+20))
+    #     return numerator/(denominator+1e-20)
+
+
+    y_diff_square = np.zeros((n_train, n_train)) #in sum(Kernel(y_l-y_i-epsilon)); exp(-(y_l-y_i)**2/(2*kernel_sigma**2))
     for l in range(n_train):
         for i in range(l+1, n_train):
-            exp_y_diff_square[l,i] = np.clip(np.exp(-(train_labels[l]-train_labels[i])**2/(2*kernel_sigma**2)), 1e-20, 1e+20)
+            y_diff_square[l,i] = (train_labels[l]-train_labels[i])**2
+
     i_lower = np.tril_indices(n_train, -1)
-    exp_y_diff_square[i_lower] = exp_y_diff_square.T[i_lower] #copy the upper triangle to the lower triangle
+    y_diff_square[i_lower] = y_diff_square.T[i_lower] #copy the upper triangle to the lower triangle
 
-    exp_y_diff_square_dict = dict() #key: index of y_i; value: an array of exp(-(y_l-y_i)**2/(2*kernel_sigma**2)), l=1,...,n_train
+    y_diff_square_dict = dict() #key: index of y_i; value: an array of exp(-(y_l-y_i)**2/(2*kernel_sigma**2)), l=1,...,n_train
     for i in range(n_train):
-        exp_y_diff_square_dict[i] = exp_y_diff_square[:,i]
+        y_diff_square_dict[i] = y_diff_square[:,i]
 
-    exp_y_diff = np.identity(n_train) #in sum(Kernel(y_l-y_i-epsilon)); exp((y_l-y_i)/(sigma^2))
+    y_diff = np.zeros((n_train, n_train)) #in sum(Kernel(y_l-y_i-epsilon)); exp((y_l-y_i)/(sigma^2))
     for l in range(n_train):
         for i in range(n_train):
             if l!=i:
-                exp_y_diff[l,i] = np.clip(np.exp((train_labels[l]-train_labels[i])/(kernel_sigma**2)), 1e-20, 1e+20)
+                y_diff[l,i] = train_labels[l]-train_labels[i]
 
-    exp_y_diff_dict = dict() #key: index of y_i; value: an array of exp((y_l-y_i)/(kernel_sigma**2)), l=1,...,n_train
+    y_diff_dict = dict() #key: index of y_i; value: an array of exp((y_l-y_i)/(kernel_sigma**2)), l=1,...,n_train
     for i in range(n_train):
-        exp_y_diff_dict[i] = exp_y_diff[:,i]
+        y_diff_dict[i] = y_diff[:,i]
 
-    def kernel_weights_yi(ys, y_i, epsilon): # for fixed y_i and epsilon
-        ys = ys.reshape(-1)
-        numerator_vec = np.clip(np.exp(-(ys-y_i)**2/(2*kernel_sigma**2)), 1e-20, 1e+20) * np.clip(np.exp((ys-y_i)*epsilon/(kernel_sigma**2)), 1e-20, 1e+20) * np.clip(np.exp(-epsilon**2/(2*kernel_sigma**2)), 1e-20, 1e+20)
-        denominator = np.sum(exp_y_diff_square_dict[label_to_index(y_i)] * (exp_y_diff_dict[label_to_index(y_i)]**epsilon) * np.clip(np.exp(-epsilon**2/(2*kernel_sigma**2)), 1e-20, 1e+20))
+    def weights_yi(y_j, y_i, epsilon): # for fixed y_i and epsilon
+        numerator = 1 / (y_j-y_i-epsilon)**2
+        denominator = np.sum(1 / (y_diff_square_dict[label_to_index(y_i)] - 2*y_diff_dict[label_to_index(y_i)]*epsilon + epsilon**2))
+        return numerator/(denominator+1e-20)
 
-        return numerator_vec/(denominator+1e-20)
 
 
     # traning GAN model
@@ -79,69 +111,37 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, epoch_GAN, dim_GAN, trai
 
     n_row=8
     z_fixed = torch.randn(n_row**2, dim_GAN, dtype=torch.float).to(device)
-    y_fixed = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2).astype(np.float)
+    y_fixed = np.arange(MIN_LABEL, MAX_LABEL)
+    np.random.shuffle(y_fixed)
+    y_fixed = y_fixed[0:n_row**2].astype(np.float)
+    # np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2).astype(np.float)
     y_fixed += shift_label
     y_fixed /= max_label
+
+    if max_label==1:
+        y_fixed = (y_fixed-0.5)/0.5 # to [-1,1]
+
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
 
     start_tmp = timeit.default_timer()
     for epoch in range(ResumeEpoch, epoch_GAN):
         for batch_idx, (batch_train_images, batch_train_labels) in enumerate(trainloader):
 
-            BATCH_SIZE = batch_train_images.shape[0]
-            batch_train_images = batch_train_images.type(torch.float).to(device)
-            batch_train_labels = batch_train_labels.type(torch.float).to(device)
+            # images and labels are split into two parts evenly.
+            # only 50% of the batch images are used but all labels are used
+            BATCH_SIZE = int(batch_train_images.shape[0]/2)
+            batch_train_images_1 = batch_train_images[0:BATCH_SIZE].type(torch.float).to(device) #real x_j's
+            batch_train_labels_1 = batch_train_labels[0:BATCH_SIZE].type(torch.float).to(device) #y_j's
+            batch_train_labels_2 = batch_train_labels[BATCH_SIZE:].type(torch.float).to(device) #y_i's
 
+            # generate Gaussian noise which are added to y_i (batch_train_labels_2)
+            batch_epsilons = np.random.normal(0, kernel_sigma, BATCH_SIZE)
+            batch_epsilons_tensor = torch.from_numpy(batch_epsilons).type(torch.float).to(device)
 
-            # optimizerG.zero_grad()
-            # optimizerD.zero_grad()
-            #
-            # # Sample noise and labels as generator input
-            # z = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
-            #
-            # g_loss = torch.tensor(0.0).to(device) #should we set requires_grad=True????
-            # d_loss = torch.tensor(0.0).to(device)
-            # for i in range(BATCH_SIZE):
-            #     batch_epsilons = np.random.normal(0, kernel_sigma, BATCH_SIZE)
-            #
-            #     batch_train_labels_noise = torch.from_numpy(np.ones(BATCH_SIZE) * (batch_train_labels[i].item()) + batch_epsilons)
-            #     batch_train_labels_noise = batch_train_labels_noise.type(torch.float).to(device)
-            #
-            #     #generate images
-            #     batch_fake_images = netG(z, batch_train_labels_noise)
-            #
-            #     # Loss measures generator's ability to fool the discriminator
-            #     dis_out = netD(batch_fake_images, batch_train_labels_noise)
-            #
-            #     # weights
-            #     weights_given_yi_epsilon = kernel_weights_yi(batch_train_labels.cpu().numpy(), batch_train_labels[i].item(), batch_epsilons[i])
-            #     weights_given_yi_epsilon = torch.from_numpy(weights_given_yi_epsilon).type(torch.float).to(device)
-            #
-            #     # assign weights and compute g_loss
-            #     g_loss += torch.sum(weights_given_yi_epsilon * torch.log(dis_out))
-            #
-            #
-            #     # Measure discriminator's ability to classify real from generated samples
-            #     fake_dis_out = netD(batch_fake_images.detach(), batch_train_labels_noise)
-            #     real_dis_out = netD(batch_train_images, batch_train_labels_noise)
-            #
-            #     fake_loss = torch.sum(weights_given_yi_epsilon * torch.log(1-fake_dis_out))
-            #     real_loss = torch.sum(weights_given_yi_epsilon * torch.log(real_dis_out))
-            #     d_loss += (real_loss + fake_loss) / 2
-            #
-            #
-            #
-            # g_loss = - (1/BATCH_SIZE**3) * g_loss # ignore some constant
-            #
-            # g_loss.backward()
-            # optimizerG.step()
-            #
-            #
-            # d_loss = - (1/BATCH_SIZE**3) * d_loss # ignore some constant
-            #
-            # d_loss.backward()
-            # optimizerD.step()
-
+            # if max_label==1: #normalize labels to [-1,1]
+            #     batch_train_labels_noise = torch.clamp(batch_train_labels_2 + batch_epsilons_tensor, -1, 1)
+            # else:
+            #     batch_train_labels_noise = torch.clamp(batch_train_labels_2 + batch_epsilons_tensor, 0.0, max_label)
 
             '''
 
@@ -150,79 +150,58 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, epoch_GAN, dim_GAN, trai
             '''
             optimizerG.zero_grad()
 
-            # Sample noise and labels as generator input
-            z = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
+            # sample noise as generator's input; generate fake images with length BATCH_SIZE
+            z = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device) # z_j's
+            batch_fake_images_1 = netG(z, batch_train_labels_1) # fake x_j's
 
-            g_loss = torch.tensor(0.0).to(device) #should we set requires_grad=True????
-            for i in range(BATCH_SIZE):
-                batch_epsilons = np.random.normal(0, kernel_sigma, BATCH_SIZE)
+            # compute weight for x_j when it is used to learn p(x|y_i+epsilon)
+            weights_x_j = np.zeros(BATCH_SIZE)
+            for j in range(BATCH_SIZE):
+                weights_x_j[j] = weights_yi(batch_train_labels_1[j].item(), batch_train_labels_2[j].item(), batch_epsilons[j])
+            weights_x_j = torch.from_numpy(weights_x_j).type(torch.float).to(device)
 
-                batch_train_labels_noise = torch.from_numpy(np.ones(BATCH_SIZE) * (batch_train_labels[i].item()) + batch_epsilons)
-                batch_train_labels_noise = batch_train_labels_noise.type(torch.float).to(device)
+            # weights_x_j = 1/(batch_train_labels_1 - batch_train_labels_2 - batch_epsilons_tensor)**2
+            # weights_x_j = torch.rsqrt((batch_train_labels_1 - batch_train_labels_2 - batch_epsilons_tensor)**2)
 
-                #generate images
-                batch_fake_images = netG(z, batch_train_labels_noise)
+            # Loss measures generator's ability to fool the discriminator
+            dis_out = netD(batch_fake_images_1, batch_train_labels_2 + batch_epsilons_tensor)
+            # dis_out = netD(batch_fake_images_1, batch_train_labels_noise)
 
-                # Loss measures generator's ability to fool the discriminator
-                dis_out = netD(batch_fake_images, batch_train_labels_noise)
-
-                # weights
-                weights_given_yi_epsilon = kernel_weights_yi(batch_train_labels.cpu().numpy(), batch_train_labels[i].item(), batch_epsilons[i])
-                weights_given_yi_epsilon = torch.from_numpy(weights_given_yi_epsilon).type(torch.float).to(device)
-
-                # assign weights and compute g_loss
-                g_loss += torch.sum(weights_given_yi_epsilon * torch.log(dis_out))
-
-            # g_loss = - (kernel_sigma*np.sqrt(np.pi)/BATCH_SIZE**3) * g_loss # ignore some constant
-            g_loss = - 1/BATCH_SIZE * g_loss
+            # weighted loss
+            g_loss = - torch.mean(weights_x_j * torch.log(dis_out))
 
             g_loss.backward()
             optimizerG.step()
+
 
             '''
 
             Train Discriminator: maximize log(D(x)) + log(1 - D(G(z)))
 
             '''
+
             #train discriminator once and generator several times
             optimizerD.zero_grad()
 
+            # Measure discriminator's ability to classify real from generated samples
+            real_dis_out = netD(batch_train_images_1, batch_train_labels_2 + batch_epsilons_tensor)
+            fake_dis_out = netD(batch_fake_images_1.detach(), batch_train_labels_2 + batch_epsilons_tensor)
+            # real_dis_out = netD(batch_train_images_1, batch_train_labels_noise)
+            # fake_dis_out = netD(batch_fake_images_1.detach(), batch_train_labels_noise)
 
-            d_loss = torch.tensor(0.0).to(device)
-            for i in range(BATCH_SIZE):
-                batch_epsilons = np.random.normal(0, kernel_sigma, BATCH_SIZE)
-
-                batch_train_labels_noise = torch.from_numpy(np.ones(BATCH_SIZE) * (batch_train_labels[i].item()) + batch_epsilons)
-                batch_train_labels_noise = batch_train_labels_noise.type(torch.float).to(device)
-
-                #generate images
-                batch_fake_images = netG(z, batch_train_labels_noise)
-
-                # Measure discriminator's ability to classify real from generated samples
-                fake_dis_out = netD(batch_fake_images.detach(), batch_train_labels_noise)
-                real_dis_out = netD(batch_train_images, batch_train_labels_noise)
-
-                # weights
-                weights_given_yi_epsilon = kernel_weights_yi(batch_train_labels.cpu().numpy(), batch_train_labels[i].item(), batch_epsilons[i])
-                weights_given_yi_epsilon = torch.from_numpy(weights_given_yi_epsilon).type(torch.float).to(device)
-
-                fake_loss = torch.sum(weights_given_yi_epsilon * torch.log(1-fake_dis_out))
-                real_loss = torch.sum(weights_given_yi_epsilon * torch.log(real_dis_out))
-
-                d_loss += real_loss + fake_loss
-
-            # d_loss = - (kernel_sigma*np.sqrt(np.pi)/BATCH_SIZE**3) * d_loss # ignore some constant
-
-            d_loss = - 1/BATCH_SIZE * d_loss # ignore some constant
+            d_loss = - torch.mean(weights_x_j * torch.log(real_dis_out)) - torch.mean(weights_x_j * torch.log(1 - fake_dis_out))
 
             d_loss.backward()
             optimizerD.step()
-
-
             gen_iterations += 1
 
+
+            tfboard_writer.add_scalar('D loss', d_loss.item(), gen_iterations)
+            tfboard_writer.add_scalar('G loss', g_loss.item(), gen_iterations)
+
+
             if batch_idx%20 == 0:
-                print ("cDCGAN: [Iter %d] [Epoch %d/%d] [D loss: %.4e] [G loss: %.4e] [Time: %.4f]" % (gen_iterations, epoch + 1, epoch_GAN, d_loss.item(), g_loss.item(), timeit.default_timer()-start_tmp))
+                print ("CcDCGAN: [Iter %d] [Epoch %d/%d] [D loss: %.4e] [G loss: %.4e] [Time: %.4f]" % (gen_iterations, epoch + 1, epoch_GAN, d_loss.item(), g_loss.item(), timeit.default_timer()-start_tmp))
 
             if gen_iterations % 100 == 0:
                 with torch.no_grad():
@@ -248,7 +227,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, epoch_GAN, dim_GAN, trai
     return netG, netD, optimizerG, optimizerD
 
 
-def SampcDCGAN(netG, dim_GAN = 128, NFAKE = 10000, batch_size = 500, device="cuda", mean_count=0, std_count=1):
+def SampcDCGAN(netG, dim_GAN = 128, NFAKE = 10000, batch_size = 500, device="cuda", shift_label = 0, max_label = 1):
     #netD: whether assign weights to fake images via inversing f function (the f in f-GAN)
     if batch_size>NFAKE:
         batch_size = NFAKE
@@ -262,7 +241,9 @@ def SampcDCGAN(netG, dim_GAN = 128, NFAKE = 10000, batch_size = 500, device="cud
             z = torch.randn(batch_size, dim_GAN, dtype=torch.float).to(device)
             y = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2)
             y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
-            y = (y - mean_count)/std_count
+            y += shift_label
+            y /= max_label
+
             batch_fake_images = netG(z, y)
             raw_fake_images[tmp:(tmp+batch_size)] = batch_fake_images.cpu().detach().numpy()
             raw_fake_counts[tmp:(tmp+batch_size)] = y.cpu().view(-1).detach().numpy()

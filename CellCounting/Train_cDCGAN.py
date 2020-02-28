@@ -18,7 +18,7 @@ MAX_LABEL=317
 ############################################################################################
 # Train DCGAN
 
-def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_cDCGANimages_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", shift_count = 0, max_count = 1):
+def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_cDCGANimages_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", shift_label = 0, max_label = 1):
 
 
     netG = netG.to(device)
@@ -43,7 +43,7 @@ def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
     y_fixed += shift_label
     y_fixed /= max_label
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
-    
+
     for epoch in range(ResumeEpoch, EPOCHS_GAN):
         for batch_idx, (batch_train_images, batch_train_counts) in enumerate(trainloader):
 
@@ -123,7 +123,7 @@ def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
     return netG, netD, optimizerG, optimizerD
 
 
-def SampcDCGAN(netG, GAN_Latent_Length = 128, NFAKE = 10000, batch_size = 500, device="cuda", mean_count=0, std_count=1):
+def SampcDCGAN(netG, GAN_Latent_Length = 128, NFAKE = 10000, batch_size = 500, device="cuda", shift_label = 0, max_label = 1):
     #netD: whether assign weights to fake images via inversing f function (the f in f-GAN)
     if batch_size>NFAKE:
         batch_size = NFAKE
@@ -137,7 +137,8 @@ def SampcDCGAN(netG, GAN_Latent_Length = 128, NFAKE = 10000, batch_size = 500, d
             z = torch.randn(batch_size, GAN_Latent_Length, dtype=torch.float).to(device)
             y = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2)
             y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
-            y = (y - mean_count)/std_count
+            y += shift_label
+            y /= max_label
             batch_fake_images = netG(z, y)
             raw_fake_images[tmp:(tmp+batch_size)] = batch_fake_images.cpu().detach().numpy()
             raw_fake_counts[tmp:(tmp+batch_size)] = y.cpu().view(-1).detach().numpy()

@@ -19,12 +19,12 @@ from tqdm import tqdm
 import gc
 from itertools import groupby
 import argparse
-from sklearn.linear_model import LogisticRegression
 import multiprocessing
 from multiprocessing import Pool
 from scipy.stats import ks_2samp
 import h5py
 import pickle
+from torch.utils.tensorboard import SummaryWriter
 
 from utils import *
 from models import *
@@ -47,6 +47,13 @@ parser.add_argument('--transform', action='store_true', default=False,
                     help='rotate or flip images for GAN training')
 parser.add_argument('--normalize_count', action='store_true', default=False,
                     help='normalize cell counts')
+
+parser.add_argument('--kernel_sigma', type=float, default=0.1)
+parser.add_argument('--b_int_digits', type=int, default=16,
+                    help='How many digits used to represent the integer part of a label')
+parser.add_argument('--b_dec_digits', type=int, default=16,
+                    help='How many digits used to represent the decimal part of a label')
+
 
 parser.add_argument('--epoch_gan', type=int, default=1000)
 parser.add_argument('--lr_g_gan', type=float, default=1e-4,
@@ -131,16 +138,21 @@ if args.normalize_count:
         max_count = max_count + shift_count
     else:
         shift_count = 0
+
+    counts += shift_count
+    counts /= max_count # [0,1]
+
+    counts = (counts-0.5)/0.5
+
 else:
     shift_count = 0
     max_count = 1
 
-counts += shift_count
-counts /= max_count
-std_count = np.std(counts)
 
-# kernel_sigma = 5 * std_count
-kernel_sigma = 0.05
+
+kernel_sigma = np.std(counts)
+# kernel_sigma = args.kernel_sigma
+print("Sigma of kernel is %f" % kernel_sigma)
 
 if args.transform:
     trainset = IMGs_dataset(images, counts, normalize=True, rotate=True, degrees = [90,180,270], hflip = True, vflip = True)
@@ -234,7 +246,7 @@ elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
 
     # function for sampling from a trained GAN
     def fn_sampleGAN_with_label(nfake, batch_size):
-        images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, mean_count=mean_count, std_count=std_count)
+        images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, shift_label = shift_count, max_label = max_count)
         return images, cellcounts
 
 #----------------------------------------------
@@ -260,7 +272,7 @@ elif args.GAN == "cWGANGP"  and not os.path.isfile(Filename_GAN):
 
     # function for sampling from a trained GAN
     def fn_sampleGAN_with_label(nfake, batch_size):
-        images, cellcounts = SampcWANGP(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, mean_count=mean_count, std_count=std_count)
+        images, cellcounts = SampcWANGP(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, shift_label = shift_count, max_label = max_count)
         return images, cellcounts
 
 
@@ -275,8 +287,10 @@ elif args.GAN == "Continuous_cDCGAN"  and not os.path.isfile(Filename_GAN):
     optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
+    tfboard_writer = SummaryWriter(wd+'/Output/saved_logs')
+
     # Start training
-    netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, shift_label = shift_count, max_label = max_count)
+    netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, shift_label = shift_count, max_label = max_count, tfboard_writer=tfboard_writer)
 
     # store model
     torch.save({
@@ -286,7 +300,7 @@ elif args.GAN == "Continuous_cDCGAN"  and not os.path.isfile(Filename_GAN):
 
     # function for sampling from a trained GAN
     def fn_sampleGAN_with_label(nfake, batch_size):
-        images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, mean_count=mean_count, std_count=std_count)
+        images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, shift_label = shift_count, max_label = max_count)
         return images, cellcounts
 
 
