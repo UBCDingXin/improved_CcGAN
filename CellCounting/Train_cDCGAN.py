@@ -11,14 +11,17 @@ import os
 NC=1
 IMG_SIZE=64
 
-MIN_LABEL=74
-MAX_LABEL=317
+# MIN_LABEL=74
+# MAX_LABEL=317
+
+MIN_LABEL=20
+MAX_LABEL=100
 
 
 ############################################################################################
 # Train DCGAN
 
-def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_cDCGANimages_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", shift_label = 0, max_label = 1):
+def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_cDCGANimages_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", normalize_count=False, shift_label = 0, max_label = 1):
 
 
     netG = netG.to(device)
@@ -37,12 +40,14 @@ def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
         gen_iterations = 0
     #end if
 
-    n_row=8
+    n_row=10
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
     y_fixed = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2).astype(np.float)
-    y_fixed += shift_label
-    y_fixed /= max_label
-    y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
+    if normalize_count:
+        y_fixed += shift_label
+        y_fixed /= max_label
+        y_fixed = (y_fixed-0.5)/0.5
+    y_fixed = torch.from_numpy(y_fixed).type(torch.float).to(device)
 
     for epoch in range(ResumeEpoch, EPOCHS_GAN):
         for batch_idx, (batch_train_images, batch_train_counts) in enumerate(trainloader):

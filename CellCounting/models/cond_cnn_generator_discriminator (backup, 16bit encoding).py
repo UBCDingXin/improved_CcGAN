@@ -70,8 +70,7 @@ class cond_cnn_generator(nn.Module):
         self.b_int_digits = b_int_digits
         self.b_dec_digits = b_dec_digits
 
-        # self.linear = nn.Linear(nz+b_int_digits+b_dec_digits, 4 * 4 * ngf * 8) #4*4*512
-        self.linear = nn.Linear(nz+1, 4 * 4 * ngf * 8) #4*4*512
+        self.linear = nn.Linear(nz+b_int_digits+b_dec_digits, 4 * 4 * ngf * 8) #4*4*512
         self.main = nn.Sequential(
             # state size: 4 x 4
             nn.ConvTranspose2d(ngf * 8, ngf * 8, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
@@ -98,7 +97,7 @@ class cond_cnn_generator(nn.Module):
     def forward(self, z, y):
         z = z.view(-1, self.nz)
         y = y.view(-1, 1)
-        # y = convert_labels(y, self.b_int_digits, self.b_dec_digits)
+        y = convert_labels(y, self.b_int_digits, self.b_dec_digits)
 
         z = torch.cat((z, y), dim=1)
         if z.is_cuda and self.ngpu > 1:
@@ -167,22 +166,17 @@ class cond_cnn_discriminator(nn.Module):
 
         )
 
-        # linear = [
-        #           # nn.Linear(ndf*8*4*4+b_int_digits+b_dec_digits, 512),
-        #           nn.Linear(ndf*8*4*4+1, 512),
-        #           nn.BatchNorm1d(512),
-        #           nn.ReLU(),
-        #           nn.Linear(512,1)]
-
-        # linear = [nn.Linear(ndf*8*4*4+b_int_digits+b_dec_digits, 1)]
-        linear = [nn.Linear(ndf*8*4*4+1, 1)]
+        linear = [nn.Linear(ndf*8*4*4+b_int_digits+b_dec_digits, 512),
+                  nn.BatchNorm1d(512),
+                  nn.ReLU(),
+                  nn.Linear(512,1)]
         if use_sigmoid:
             linear += [nn.Sigmoid()]
         self.linear = nn.Sequential(*linear)
 
     def forward(self, x, y):
         y = y.view(-1, 1)
-        # y = convert_labels(y, self.b_int_digits, self.b_dec_digits)
+        y = convert_labels(y, self.b_int_digits, self.b_dec_digits)
 
         if x.is_cuda and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.main, x, range(self.ngpu))

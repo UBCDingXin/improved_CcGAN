@@ -14,8 +14,11 @@ import os
 NC=1
 IMG_SIZE=64
 
-MIN_LABEL=74
-MAX_LABEL=317
+# MIN_LABEL=74
+# MAX_LABEL=317
+
+MIN_LABEL=1
+MAX_LABEL=100
 
 ############################################################################################
 # Train WGANs
@@ -49,7 +52,7 @@ def calc_gradient_penalty_WGAN(netD, real_data, fake_data, batch_train_counts_da
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
     return gradient_penalty
 
-def train_cWGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = None, ResumeEpoch = 0, device="cuda", shift_label = 0, max_label = 1):
+def train_cWGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = None, ResumeEpoch = 0, device="cuda", normalize_count=False, shift_label = 0, max_label = 1):
 
     netG = netG.to(device)
     netD = netD.to(device)
@@ -67,11 +70,13 @@ def train_cWGANGP(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimi
         gen_iterations = 0
     #end if
 
-    n_row=8
+    n_row=10
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
     y_fixed = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2).astype(np.float)
-    y_fixed += shift_label
-    y_fixed /= max_label
+    if normalize_count:
+        y_fixed += shift_label
+        y_fixed /= max_label
+        y_fixed = (y_fixed-0.5)/0.5
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
 
     for epoch in range(ResumeEpoch, EPOCHS_GAN):

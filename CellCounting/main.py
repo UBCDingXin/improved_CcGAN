@@ -39,7 +39,7 @@ from Train_Continuous_cDCGAN import *
 #######################################################################################
 parser = argparse.ArgumentParser(description='Density-ratio based sampling for GANs')
 
-parser.add_argument('--GAN', type=str, default='DCGAN',
+parser.add_argument('--GAN', type=str, default='Continuous_cDCGAN',
                     choices=['DCGAN', 'cDCGAN', 'WGANGP', 'cWGANGP', 'Continuous_cDCGAN'])
 parser.add_argument('--seed', type=int, default=2019, metavar='S',
                     help='random seed (default: 1)')
@@ -48,7 +48,10 @@ parser.add_argument('--transform', action='store_true', default=False,
 parser.add_argument('--normalize_count', action='store_true', default=False,
                     help='normalize cell counts')
 
+
 parser.add_argument('--kernel_sigma', type=float, default=0.1)
+parser.add_argument('--threshold_type', type=str, default='global_soft',
+                    choices=['global_soft', 'local_soft', 'hard'])
 parser.add_argument('--b_int_digits', type=int, default=16,
                     help='How many digits used to represent the integer part of a label')
 parser.add_argument('--b_dec_digits', type=int, default=16,
@@ -121,13 +124,42 @@ os.makedirs(save_traincurves_folder, exist_ok=True)
 '''                                    Data loader                                 '''
 #######################################################################################
 # data loader
-h5py_file = wd+'/data/VGG_dataset_64x64.h5'
+# h5py_file = wd+'/data/VGG_dataset_64x64.h5'
+h5py_file = wd+'/data/cell_dataset_resize_64x64.h5'
 hf = h5py.File(h5py_file, 'r')
 counts = hf['CellCounts'][:]
 counts = counts.astype(np.float)
-# images = hf['IMGs_rgb'][:]
 images = hf['IMGs_grey'][:]
 hf.close()
+
+
+
+# for each cell count select n_imgs_per_cellcount images
+n_imgs_per_cellcount = 100
+# unique_cellcounts = list(set(counts))
+# n_unique_cellcount = len(unique_cellcounts)
+selected_cellcounts = np.arange(5, 110, 2)
+n_unique_cellcount = len(selected_cellcounts)
+
+
+images_subset = np.zeros((n_imgs_per_cellcount*n_unique_cellcount, 1, IMG_SIZE, IMG_SIZE), dtype=np.uint8)
+counts_subset = np.zeros(n_imgs_per_cellcount*n_unique_cellcount)
+for i in range(n_unique_cellcount):
+    # curr_cellcount = unique_cellcounts[i]
+    curr_cellcount = selected_cellcounts[i]
+    index_curr_cellcount = np.where(counts==curr_cellcount)[0]
+
+    if i == 0:
+        images_subset = images[index_curr_cellcount[0:n_imgs_per_cellcount]]
+        counts_subset = counts[index_curr_cellcount[0:n_imgs_per_cellcount]]
+    else:
+        images_subset = np.concatenate((images_subset, images[index_curr_cellcount[0:n_imgs_per_cellcount]]), axis=0)
+        counts_subset = np.concatenate((counts_subset, counts[index_curr_cellcount[0:n_imgs_per_cellcount]]))
+# for i
+images = images_subset
+counts = counts_subset
+del images_subset, counts_subset; gc.collect()
+
 
 #normalize count
 if args.normalize_count:
@@ -143,15 +175,13 @@ if args.normalize_count:
     counts /= max_count # [0,1]
 
     counts = (counts-0.5)/0.5
-
 else:
     shift_count = 0
     max_count = 1
 
 
-
-kernel_sigma = np.std(counts)
-# kernel_sigma = args.kernel_sigma
+# kernel_sigma = np.std(counts)
+kernel_sigma = args.kernel_sigma
 print("Sigma of kernel is %f" % kernel_sigma)
 
 if args.transform:
@@ -193,10 +223,10 @@ if args.GAN == "DCGAN" and not os.path.isfile(Filename_GAN):
         'netD_state_dict': netD.state_dict(),
     }, Filename_GAN)
 
-    # function for sampling from a trained GAN
-    def fn_sampleGAN_no_label(nfake, batch_size):
-        images = SampDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, device=device)
-        return images
+    # # function for sampling from a trained GAN
+    # def fn_sampleGAN_no_label(nfake, batch_size):
+    #     images = SampDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, device=device)
+    #     return images
 
 #----------------------------------------------
 # WGANGP
@@ -218,10 +248,10 @@ elif args.GAN == "WGANGP"  and not os.path.isfile(Filename_GAN):
         'netD_state_dict': netD.state_dict(),
     }, Filename_GAN)
 
-    # function for sampling from a trained GAN
-    def fn_sampleGAN_no_label(nfake, batch_size):
-        images = SampWGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, device=device)
-        return images
+    # # function for sampling from a trained GAN
+    # def fn_sampleGAN_no_label(nfake, batch_size):
+    #     images = SampWGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, device=device)
+    #     return images
 
 #----------------------------------------------
 # cDCGAN
@@ -236,7 +266,7 @@ elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
     # Start training
-    netG, netD, optimizerG, optimizerD = train_cDCGAN(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, shift_label = shift_count, max_label = max_count)
+    netG, netD, optimizerG, optimizerD = train_cDCGAN(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
 
     # store model
     torch.save({
@@ -244,10 +274,10 @@ elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
         'netD_state_dict': netD.state_dict(),
     }, Filename_GAN)
 
-    # function for sampling from a trained GAN
-    def fn_sampleGAN_with_label(nfake, batch_size):
-        images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, shift_label = shift_count, max_label = max_count)
-        return images, cellcounts
+    # # function for sampling from a trained GAN
+    # def fn_sampleGAN_with_label(nfake, batch_size):
+    #     images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
+    #     return images, cellcounts
 
 #----------------------------------------------
 # cWGANGP
@@ -262,7 +292,7 @@ elif args.GAN == "cWGANGP"  and not os.path.isfile(Filename_GAN):
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
     # Start training
-    netG, netD, optimizerG, optimizerD = train_cWGANGP(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, shift_label = shift_count, max_label = max_count)
+    netG, netD, optimizerG, optimizerD = train_cWGANGP(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
 
     # store model
     torch.save({
@@ -270,10 +300,10 @@ elif args.GAN == "cWGANGP"  and not os.path.isfile(Filename_GAN):
         'netD_state_dict': netD.state_dict(),
     }, Filename_GAN)
 
-    # function for sampling from a trained GAN
-    def fn_sampleGAN_with_label(nfake, batch_size):
-        images, cellcounts = SampcWANGP(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, shift_label = shift_count, max_label = max_count)
-        return images, cellcounts
+    # # function for sampling from a trained GAN
+    # def fn_sampleGAN_with_label(nfake, batch_size):
+    #     images, cellcounts = SampcWANGP(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
+    #     return images, cellcounts
 
 
 #----------------------------------------------
@@ -290,7 +320,7 @@ elif args.GAN == "Continuous_cDCGAN"  and not os.path.isfile(Filename_GAN):
     tfboard_writer = SummaryWriter(wd+'/Output/saved_logs')
 
     # Start training
-    netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, shift_label = shift_count, max_label = max_count, tfboard_writer=tfboard_writer)
+    netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.threshold_type, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
 
     # store model
     torch.save({
@@ -298,10 +328,10 @@ elif args.GAN == "Continuous_cDCGAN"  and not os.path.isfile(Filename_GAN):
         'netD_state_dict': netD.state_dict(),
     }, Filename_GAN)
 
-    # function for sampling from a trained GAN
-    def fn_sampleGAN_with_label(nfake, batch_size):
-        images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, shift_label = shift_count, max_label = max_count)
-        return images, cellcounts
+    # # function for sampling from a trained GAN
+    # def fn_sampleGAN_with_label(nfake, batch_size):
+    #     images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
+    #     return images, cellcounts
 
 
 

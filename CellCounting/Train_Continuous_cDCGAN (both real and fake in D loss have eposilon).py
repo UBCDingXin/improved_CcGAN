@@ -13,8 +13,8 @@ from torch.utils.tensorboard import SummaryWriter
 NC=1
 IMG_SIZE=64
 
-# MIN_LABEL=74
-# MAX_LABEL=317
+MIN_LABEL=74
+MAX_LABEL=317
 
 
 ############################################################################################
@@ -24,7 +24,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, epoch_GA
 
     train_labels: training labels (numpy array)
     kernel_sigma: the sigma in the Guassian kernel (a real value)
-    threshold_type: hard or soft threshold ('hard', 'global_soft', 'local_soft')
+    threshold_type: hard or soft threshold ('hard', 'soft')
 
     '''
 
@@ -32,13 +32,11 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, epoch_GA
     train_labels = train_labels.reshape(-1) #do not shuffle train_labels because its order matters
     n_train = len(train_labels)
 
+    def label_to_index(label): #label to its index in train_labels according to its distance to each element of train_labels
+        diff_abs = np.abs(train_labels-label)
+        return np.argsort(diff_abs)[0]
 
-
-    if threshold_type == "global_soft":
-        def label_to_index(label): #label to its index in train_labels according to its distance to each element of train_labels
-            diff_abs = np.abs(train_labels-label)
-            return np.argsort(diff_abs)[0]
-
+    if threshold_type == "soft":
         exp_y_diff_square = np.identity(n_train) #in sum(Kernel(y_l-y_i-epsilon)); exp(-(y_l-y_i)**2/(2*kernel_sigma**2))
         for l in range(n_train):
             for i in range(l+1, n_train):
@@ -61,7 +59,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, epoch_GA
             exp_y_diff_dict[i] = exp_y_diff[:,i]
 
         def weights_yi(y_j, y_i, epsilon): # for fixed y_i and epsilon
-            numerator = 1 + np.clip(np.exp(-kernel_sigma*(y_j-y_i-epsilon)**2), 1e-20, 1e+20)
+            numerator = 1 + np.clip(np.exp(-kernel_sigma*(y_j-y_i-epsilon)**2))
             denominator = np.sum(1 + exp_y_diff_square_dict[label_to_index(y_i)] * (exp_y_diff_dict[label_to_index(y_i)]**epsilon) * np.clip(np.exp(-kernel_sigma*epsilon**2), 1e-20, 1e+20))
             return numerator/denominator
 
@@ -82,21 +80,10 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, epoch_GA
         gen_iterations = 0
     #end if
 
-    n_row=8
+    n_row=10
     z_fixed = torch.randn(n_row**2, dim_GAN, dtype=torch.float).to(device)
-    unique_labels = np.array(list(set(train_labels)))
-    assert len(unique_labels) >= n_row
-    y_fixed = np.zeros(n_row**2)
-    for i in range(n_row):
-        if i == 0:
-            curr_label = np.min(unique_labels)
-        else:
-            curr_label += 10
-        for j in range(n_row):
-            y_fixed[i*n_row+j] = curr_label
-    print(y_fixed)
+    y_fixed = train_labels[0:n_row**2].astype(np.float)
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
-
 
     start_tmp = timeit.default_timer()
     for epoch in range(ResumeEpoch, epoch_GAN):
@@ -104,52 +91,17 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, epoch_GA
 
             # images and labels are split into two parts evenly.
             # only 50% of the batch images are used but all labels are used
-            BATCH_SIZE = batch_train_images.shape[0]
-            batch_train_images = batch_train_images.type(torch.float).to(device)
-            batch_train_labels_np = batch_train_labels.type(torch.float).numpy()
-            batch_train_labels = batch_train_labels.type(torch.float).to(device)
+            BATCH_SIZE = int(batch_train_images.shape[0]/2)
+            batch_train_images_1 = batch_train_images[0:BATCH_SIZE].type(torch.float).to(device) #real x_j's
+            batch_train_labels_1 = batch_train_labels[0:BATCH_SIZE].type(torch.float).to(device) #y_j's
+            batch_train_labels_2 = batch_train_labels[BATCH_SIZE:].type(torch.float).to(device) #y_i's
 
-            # define weight function
-            if threshold_type == "local_soft":
+            # generate Gaussian noise which are added to y_i (batch_train_labels_2)
+            batch_epsilons_1 = np.random.normal(0, kernel_sigma, BATCH_SIZE)
+            batch_epsilons_tensor_1 = torch.from_numpy(batch_epsilons_1).type(torch.float).to(device)
 
-
-                def label_to_index(label): #label to its index in train_labels according to its distance to each element of train_labels
-                    diff_abs = np.abs(batch_train_labels_np-label)
-                    return np.argsort(diff_abs)[0]
-
-                exp_y_diff_square = np.identity(BATCH_SIZE) #in sum(Kernel(y_l-y_i-epsilon)); exp(-(y_l-y_i)**2/(2*kernel_sigma**2))
-                for l in range(BATCH_SIZE):
-                    for i in range(l+1, BATCH_SIZE):
-                        exp_y_diff_square[l,i] = np.clip(np.exp(-kernel_sigma*(batch_train_labels_np[l]-train_labels[i])**2), 1e-20, 1e+20)
-                i_lower = np.tril_indices(BATCH_SIZE, -1)
-                exp_y_diff_square[i_lower] = exp_y_diff_square.T[i_lower] #copy the upper triangle to the lower triangle
-
-                exp_y_diff_square_dict = dict() #key: index of y_i; value: an array of exp(-(y_l-y_i)**2/(2*kernel_sigma**2)), l=1,...,n_train
-                for i in range(BATCH_SIZE):
-                    exp_y_diff_square_dict[i] = exp_y_diff_square[:,i]
-
-                exp_y_diff = np.identity(BATCH_SIZE) #in sum(Kernel(y_l-y_i-epsilon)); exp((y_l-y_i)/(sigma^2))
-                for l in range(BATCH_SIZE):
-                    for i in range(BATCH_SIZE):
-                        if l!=i:
-                            exp_y_diff[l,i] = np.clip(np.exp(2*kernel_sigma*(batch_train_labels_np[l]-batch_train_labels_np[i])), 1e-20, 1e+20)
-
-                exp_y_diff_dict = dict() #key: index of y_i; value: an array of exp((y_l-y_i)/(kernel_sigma**2)), l=1,...,n_train
-                for i in range(BATCH_SIZE):
-                    exp_y_diff_dict[i] = exp_y_diff[:,i]
-
-                def weights_yi(y_j, y_i, epsilon): # for fixed y_i and epsilon
-                    numerator = 1 + np.clip(np.exp(-kernel_sigma*(y_j-y_i-epsilon)**2), 1e-20, 1e+20)
-                    denominator = np.sum(1 + exp_y_diff_square_dict[label_to_index(y_i)] * (exp_y_diff_dict[label_to_index(y_i)]**epsilon) * np.clip(np.exp(-kernel_sigma*epsilon**2), 1e-20, 1e+20))
-                    return numerator/denominator
-
-
-
-
-            # generate Gaussian noise which are added to labels
-            batch_epsilons = np.random.normal(0, kernel_sigma, BATCH_SIZE)
-            batch_epsilons_tensor = torch.from_numpy(batch_epsilons).type(torch.float).to(device)
-
+            batch_epsilons_2 = np.random.normal(0, kernel_sigma, BATCH_SIZE)
+            batch_epsilons_tensor_2 = torch.from_numpy(batch_epsilons_2).type(torch.float).to(device)
 
             '''
 
@@ -160,14 +112,14 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, epoch_GA
 
             # sample noise as generator's input; generate fake images with length BATCH_SIZE
             z = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
-            batch_fake_images = netG(z, batch_train_labels + batch_epsilons_tensor)
+            batch_fake_images_2 = netG(z, batch_train_labels_2 + batch_epsilons_tensor_2)
 
 
             # Loss measures generator's ability to fool the discriminator
-            dis_out = netD(batch_fake_images, batch_train_labels + batch_epsilons_tensor)
+            dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2)
 
             # no weights
-            g_loss = - torch.mean(torch.log(dis_out+1e-20))
+            g_loss = - torch.mean(torch.log(dis_out))
 
             g_loss.backward()
             optimizerG.step()
@@ -183,22 +135,32 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, epoch_GA
             optimizerD.zero_grad()
 
             # Measure discriminator's ability to classify real from generated samples
-            real_dis_out = netD(batch_train_images, batch_train_labels + batch_epsilons_tensor)
+            real_dis_out = netD(batch_train_images_1, batch_train_labels_2 + batch_epsilons_tensor_2)
 
-            fake_dis_out = netD(batch_fake_images.detach(), batch_train_labels + batch_epsilons_tensor)
+            batch_fake_images_1 = netG(z, batch_train_labels_1 + batch_epsilons_tensor_1)
+            fake_dis_out = netD(batch_fake_images_1.detach(),batch_train_labels_2 + batch_epsilons_tensor_2)
 
             # compute weight for x_j when it is used to learn p(x|y_i+epsilon)
-            weights_x_j = np.zeros(BATCH_SIZE)
+            real_weights_x_j = np.zeros(BATCH_SIZE)
             for j in range(BATCH_SIZE):
                 if threshold_type == "soft":
-                    weights_x_j[j] = weights_yi(batch_train_labels[j].item(), batch_train_labels[j].item(), batch_epsilons[j])
+                    real_weights_x_j[j] = weights_yi(batch_train_labels_1[j].item(), batch_train_labels_2[j].item(), batch_epsilons_2[j])
                 else:
-                    if np.abs(batch_epsilons[j]) < 2*kernel_sigma:
-                        weights_x_j[j] = 1
-            weights_x_j = torch.from_numpy(weights_x_j).type(torch.float).to(device)
+                    if np.abs(batch_train_labels_1[j].item()-batch_train_labels_2[j].item()-batch_epsilons_2[j]) < kernel_sigma:
+                        real_weights_x_j[j] = 1
+            real_weights_x_j = torch.from_numpy(real_weights_x_j).type(torch.float).to(device)
 
 
-            d_loss = - torch.mean(weights_x_j * torch.log(real_dis_out + 1e-20)) - torch.mean(weights_x_j * torch.log(1 - fake_dis_out + 1e-20)) #only add weights to real out
+            fake_weights_x_j = np.zeros(BATCH_SIZE)
+            for j in range(BATCH_SIZE):
+                if threshold_type == "soft":
+                    fake_weights_x_j[j] = weights_yi(batch_train_labels_1[j].item(), batch_train_labels_2[j].item(), batch_epsilons_2[j]-batch_epsilons_1[j])
+                else:
+                    if np.abs(batch_train_labels_1[j].item()+batch_epsilons_1[j]-batch_train_labels_2[j].item()-batch_epsilons_2[j]) < kernel_sigma:
+                        fake_weights_x_j[j] = 1
+            fake_weights_x_j = torch.from_numpy(fake_weights_x_j).type(torch.float).to(device)
+
+            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out)) #only add weights to real out
 
             d_loss.backward()
             optimizerD.step()
