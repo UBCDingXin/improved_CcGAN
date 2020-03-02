@@ -52,6 +52,7 @@ parser.add_argument('--normalize_count', action='store_true', default=False,
 parser.add_argument('--kernel_sigma', type=float, default=0.1)
 parser.add_argument('--threshold_type', type=str, default='global_soft',
                     choices=['global_soft', 'local_soft', 'hard'])
+parser.add_argument('--kappa', type=float, default=1)
 parser.add_argument('--b_int_digits', type=int, default=16,
                     help='How many digits used to represent the integer part of a label')
 parser.add_argument('--b_dec_digits', type=int, default=16,
@@ -320,7 +321,7 @@ elif args.GAN == "Continuous_cDCGAN"  and not os.path.isfile(Filename_GAN):
     tfboard_writer = SummaryWriter(wd+'/Output/saved_logs')
 
     # Start training
-    netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.threshold_type, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
+    netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.threshold_type, args.kappa, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
 
     # store model
     torch.save({
