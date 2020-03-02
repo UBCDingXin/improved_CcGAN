@@ -10,7 +10,7 @@ import numpy as np
 NC=1
 IMG_SIZE=64
 
-label_width = 1
+label_width = 10
 
 
 default_bias = True

@@ -167,12 +167,13 @@ class cond_cnn_discriminator(nn.Module):
 
         )
 
-        linear = [
-                  # nn.Linear(ndf*8*4*4+b_int_digits+b_dec_digits, 512),
-                  nn.Linear(ndf*8*4*4+1, 512),
-                  nn.BatchNorm1d(512),
-                  nn.ReLU(),
-                  nn.Linear(512,1)]
+        # linear = [
+        #           # nn.Linear(ndf*8*4*4+b_int_digits+b_dec_digits, 512),
+        #           nn.Linear(ndf*8*4*4+1, 512),
+        #           nn.BatchNorm1d(512),
+        #           nn.ReLU(),
+        #           nn.Linear(512,1)]
+        linear = [nn.Linear(ndf*8*4*4+1, 1)]
         if use_sigmoid:
             linear += [nn.Sigmoid()]
         self.linear = nn.Sequential(*linear)

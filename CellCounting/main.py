@@ -50,8 +50,8 @@ parser.add_argument('--normalize_count', action='store_true', default=False,
 
 
 parser.add_argument('--kernel_sigma', type=float, default=0.1)
-parser.add_argument('--threshold_type', type=str, default='global_soft',
-                    choices=['global_soft', 'local_soft', 'hard'])
+parser.add_argument('--threshold_type', type=str, default='soft',
+                    choices=['soft', 'hard'])
 parser.add_argument('--kappa', type=float, default=1)
 parser.add_argument('--b_int_digits', type=int, default=16,
                     help='How many digits used to represent the integer part of a label')
@@ -59,10 +59,10 @@ parser.add_argument('--b_dec_digits', type=int, default=16,
                     help='How many digits used to represent the decimal part of a label')
 
 
-parser.add_argument('--epoch_gan', type=int, default=1000)
+parser.add_argument('--epoch_gan', type=int, default=500)
 parser.add_argument('--lr_g_gan', type=float, default=1e-4,
                     help='learning rate for generator')
-parser.add_argument('--lr_d_gan', type=float, default=1e-4,
+parser.add_argument('--lr_d_gan', type=float, default=2e-4,
                     help='learning rate for discriminator')
 parser.add_argument('--dim_gan', type=int, default=128,
                     help='Latent dimension of GAN')
@@ -116,6 +116,8 @@ save_images_folder = wd + '/Output/saved_images'
 os.makedirs(save_images_folder, exist_ok=True)
 save_GANimages_InTrain_folder = wd + '/Output/saved_images/' + args.GAN + '_InTrain/'
 os.makedirs(save_GANimages_InTrain_folder, exist_ok=True)
+save_GANimages_folder = wd + '/Output/saved_images/' + args.GAN
+os.makedirs(save_GANimages_folder, exist_ok=True)
 save_traincurves_folder = wd + '/Output/Training_loss_fig'
 os.makedirs(save_traincurves_folder, exist_ok=True)
 
@@ -136,7 +138,7 @@ hf.close()
 
 
 # for each cell count select n_imgs_per_cellcount images
-n_imgs_per_cellcount = 100
+n_imgs_per_cellcount = 50
 # unique_cellcounts = list(set(counts))
 # n_unique_cellcount = len(unique_cellcounts)
 selected_cellcounts = np.arange(5, 110, 2)
@@ -161,6 +163,8 @@ images = images_subset
 counts = counts_subset
 del images_subset, counts_subset; gc.collect()
 
+print("Number of images: %d" % len(images))
+
 
 #normalize count
 if args.normalize_count:
@@ -175,10 +179,18 @@ if args.normalize_count:
     counts += shift_count
     counts /= max_count # [0,1]
 
-    counts = (counts-0.5)/0.5
+    # counts = (counts-0.5)/0.5
+
+    # mean_count = np.mean(counts)
+    # std_count = np.std(counts)
+    # counts = (counts-mean_count)/std_count
+
 else:
     shift_count = 0
     max_count = 1
+
+
+
 
 
 # kernel_sigma = np.std(counts)
@@ -282,7 +294,7 @@ elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
 
 #----------------------------------------------
 # cWGANGP
-elif args.GAN == "cWGANGP"  and not os.path.isfile(Filename_GAN):
+elif args.GAN == "cWGANGP" and not os.path.isfile(Filename_GAN):
     netG = cond_cnn_generator(NGPU, args.dim_gan)
     netD = cond_cnn_discriminator(False, NGPU)
     if args.resumeTrain_gan==0:
@@ -309,30 +321,47 @@ elif args.GAN == "cWGANGP"  and not os.path.isfile(Filename_GAN):
 
 #----------------------------------------------
 # Concitnuous cDCGAN
-elif args.GAN == "Continuous_cDCGAN"  and not os.path.isfile(Filename_GAN):
-    netG = cond_cnn_generator(NGPU, args.dim_gan)
-    netD = cond_cnn_discriminator(True, NGPU)
-    if args.resumeTrain_gan==0:
-        netG.apply(weights_init)
-        netD.apply(weights_init)
-    optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
-    optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
+elif args.GAN == "Continuous_cDCGAN":
+    if not os.path.isfile(Filename_GAN):
+        netG = cond_cnn_generator(NGPU, args.dim_gan)
+        netD = cond_cnn_discriminator(True, NGPU)
+        if args.resumeTrain_gan==0:
+            netG.apply(weights_init)
+            netD.apply(weights_init)
+        optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
+        optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
-    tfboard_writer = SummaryWriter(wd+'/Output/saved_logs')
+        tfboard_writer = SummaryWriter(wd+'/Output/saved_logs')
 
-    # Start training
-    netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.threshold_type, args.kappa, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
+        # Start training
+        netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.threshold_type, args.kappa, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
 
-    # store model
-    torch.save({
-        'netG_state_dict': netG.state_dict(),
-        'netD_state_dict': netD.state_dict(),
-    }, Filename_GAN)
+        # store model
+        torch.save({
+            'netG_state_dict': netG.state_dict(),
+            'netD_state_dict': netD.state_dict(),
+        }, Filename_GAN)
 
-    # # function for sampling from a trained GAN
-    # def fn_sampleGAN_with_label(nfake, batch_size):
-    #     images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
-    #     return images, cellcounts
+        # # function for sampling from a trained GAN
+        # def fn_sampleGAN_with_label(nfake, batch_size):
+        #     images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
+        #     return images, cellcounts
+    else:
+        checkpoint = torch.load(Filename_GAN)
+        netG = cond_cnn_generator(NGPU, args.dim_gan).to(device)
+        netG.load_state_dict(checkpoint['netG_state_dict'])
+
+    num_unique_counts_output = 50
+    output_counts_range = np.linspace(np.min(counts), np.max(counts), num=num_unique_counts_output)
+
+    for i in range(num_unique_counts_output):
+        curr_folder = save_GANimages_folder + '/' +  str(output_counts_range[i])
+        os.makedirs(curr_folder, exist_ok=True)
+        curr_count = output_counts_range[i]
+        _ = SampCcGAN_given_label(netG, curr_count, path=curr_folder, dim_GAN = 128, NFAKE = 100, batch_size = 100, device="cuda")
+
+
+
 
 
 
