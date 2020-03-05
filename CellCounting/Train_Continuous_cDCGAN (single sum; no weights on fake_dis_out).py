@@ -9,13 +9,12 @@ import numpy as np
 import os
 import timeit
 from torch.utils.tensorboard import SummaryWriter
-from PIL import Image
 
 NC=1
 IMG_SIZE=64
 
-#MIN_LABEL=74
-#MAX_LABEL=317
+# MIN_LABEL=74
+# MAX_LABEL=317
 
 
 ############################################################################################
@@ -25,7 +24,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
 
     train_labels: training labels (numpy array)
     kernel_sigma: the sigma in the Guassian kernel (a real value)
-    threshold_type: hard or soft threshold ('hard', 'soft')
+    threshold_type: hard or soft threshold ('hard', 'global_soft', 'local_soft')
 
     '''
 
@@ -34,9 +33,11 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     n_train = len(train_labels)
 
     std_count = np.std(train_labels)
+
     def sample_Gaussian(n, dim, mean=0, sigma=1):
         samples = np.random.normal(mean, sigma, n*dim)
         return samples.reshape((n, dim))
+
 
 
     # traning GAN model
@@ -60,6 +61,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     # z_fixed = torch.randn(n_row**2, dim_GAN, dtype=torch.float).to(device)
     z_fixed = torch.from_numpy(sample_Gaussian(n_row**2, dim_GAN)).type(torch.float).to(device)
 
+
     unique_labels = np.array(list(set(train_labels)))
     unique_labels = np.sort(unique_labels)
     assert len(unique_labels) >= n_row
@@ -79,24 +81,22 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
 
 
-
     start_tmp = timeit.default_timer()
     for epoch in range(ResumeEpoch, epoch_GAN):
         for batch_idx, (batch_train_images, batch_train_labels) in enumerate(trainloader):
 
             # images and labels are split into two parts evenly.
             # only 50% of the batch images are used but all labels are used
-            BATCH_SIZE = int(batch_train_images.shape[0]/2)
-            batch_train_images_1 = batch_train_images[0:BATCH_SIZE].type(torch.float).to(device) #real x_j's
-            batch_train_labels_1 = batch_train_labels[0:BATCH_SIZE].type(torch.float).to(device) #y_j's
-            batch_train_labels_2 = batch_train_labels[BATCH_SIZE:].type(torch.float).to(device) #y_i's
+            BATCH_SIZE = batch_train_images.shape[0]
+            batch_train_images = batch_train_images.type(torch.float).to(device)
+            batch_train_labels_np = batch_train_labels.type(torch.float).numpy()
+            batch_train_labels = batch_train_labels.type(torch.float).to(device)
 
-            # generate Gaussian noise which are added to y_i (batch_train_labels_2)
-            batch_epsilons_1 = np.random.normal(0, kernel_sigma, BATCH_SIZE)
-            batch_epsilons_tensor_1 = torch.from_numpy(batch_epsilons_1).type(torch.float).to(device)
 
-            batch_epsilons_2 = np.random.normal(0, kernel_sigma, BATCH_SIZE)
-            batch_epsilons_tensor_2 = torch.from_numpy(batch_epsilons_2).type(torch.float).to(device)
+            # generate Gaussian noise which are added to labels
+            batch_epsilons = np.random.normal(0, kernel_sigma, BATCH_SIZE)
+            batch_epsilons_tensor = torch.from_numpy(batch_epsilons).type(torch.float).to(device)
+
 
             '''
 
@@ -106,13 +106,14 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
             optimizerG.zero_grad()
 
             # sample noise as generator's input; generate fake images with length BATCH_SIZE
-            # z_2 = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
-            z_2 = torch.from_numpy(sample_Gaussian(BATCH_SIZE, dim_GAN)).type(torch.float).to(device)
-            batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2)
+            # z = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
+            z = torch.from_numpy(sample_Gaussian(BATCH_SIZE, dim_GAN)).type(torch.float).to(device)
+
+            batch_fake_images = netG(z, batch_train_labels + batch_epsilons_tensor)
 
 
             # Loss measures generator's ability to fool the discriminator
-            dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2)
+            dis_out = netD(batch_fake_images, batch_train_labels + batch_epsilons_tensor)
 
             # no weights
             g_loss = - torch.mean(torch.log(dis_out+1e-20))
@@ -131,31 +132,26 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
             optimizerD.zero_grad()
 
             # Measure discriminator's ability to classify real from generated samples
-            real_dis_out = netD(batch_train_images_1, batch_train_labels_2 + batch_epsilons_tensor_2)
+            real_dis_out = netD(batch_train_images, batch_train_labels + batch_epsilons_tensor)
 
-            # z_1 = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
-            z_1 = torch.from_numpy(sample_Gaussian(BATCH_SIZE, dim_GAN)).type(torch.float).to(device)
-            batch_fake_images_1 = netG(z_1, batch_train_labels_1 + batch_epsilons_tensor_1)
-            fake_dis_out = netD(batch_fake_images_1.detach(),batch_train_labels_2 + batch_epsilons_tensor_2)
+            fake_dis_out = netD(batch_fake_images.detach(), batch_train_labels + batch_epsilons_tensor)
+            # fake_dis_out = netD(batch_fake_images.detach(), batch_train_labels)
 
             # compute weight for x_j when it is used to learn p(x|y_i+epsilon)
+
+
             if threshold_type == "soft":
-                real_weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
-                fake_weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
+                weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_epsilons)**2), 1e-20, 1e+20)
             else:
-                real_weights_x_j = np.zeros(BATCH_SIZE)
-                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) <= kappa)[0]
-                real_weights_x_j[indx] = 1
+                weights_x_j = np.zeros(BATCH_SIZE)
+                indx = np.where(np.abs(batch_epsilons) <= kappa)[0]
+                weights_x_j[indx] = 1
 
-                fake_weights_x_j = np.zeros(BATCH_SIZE)
-                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) <= kappa)[0]
-                fake_weights_x_j[indx] = 1
-
-            real_weights_x_j = torch.from_numpy(real_weights_x_j).type(torch.float).to(device)
-            fake_weights_x_j = torch.from_numpy(fake_weights_x_j).type(torch.float).to(device)
+            weights_x_j = torch.from_numpy(weights_x_j).type(torch.float).to(device)
 
 
-            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out+1e-20)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out+1e-20)) #should we add weights to fake out?????
+            # d_loss = - torch.mean(weights_x_j * torch.log(real_dis_out + 1e-20)) - torch.mean(weights_x_j * torch.log(1 - fake_dis_out + 1e-20))
+            d_loss = - torch.mean(weights_x_j * torch.log(real_dis_out + 1e-20)) - torch.mean(torch.log(1 - fake_dis_out + 1e-20))
 
             d_loss.backward()
             optimizerD.step()
@@ -195,33 +191,32 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     return netG, netD, optimizerG, optimizerD
 
 
-def SampCcGAN_given_label(netG, label, path=None, dim_GAN = 128, NFAKE = 10000, batch_size = 500, device="cuda"):
+def SampcDCGAN(netG, dim_GAN = 128, NFAKE = 10000, batch_size = 500, device="cuda", normalize_count = False, shift_label = 0, max_label = 1):
     #netD: whether assign weights to fake images via inversing f function (the f in f-GAN)
     if batch_size>NFAKE:
         batch_size = NFAKE
     raw_fake_images = np.zeros((NFAKE+batch_size, NC, IMG_SIZE, IMG_SIZE), dtype=np.float)
+    raw_fake_counts = np.zeros(NFAKE+batch_size, dtype=np.float)
     netG=netG.to(device)
     netG.eval()
     with torch.no_grad():
         tmp = 0
         while tmp < NFAKE:
             z = torch.randn(batch_size, dim_GAN, dtype=torch.float).to(device)
-            y = np.ones(batch_size) * label
+            y = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2)
             y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
+            if normalize_count:
+                y += shift_label
+                y /= max_label
+                y = (y-0.5)/0.5
+
             batch_fake_images = netG(z, y)
             raw_fake_images[tmp:(tmp+batch_size)] = batch_fake_images.cpu().detach().numpy()
+            raw_fake_counts[tmp:(tmp+batch_size)] = y.cpu().view(-1).detach().numpy()
             tmp += batch_size
 
     #remove extra entries
     raw_fake_images = raw_fake_images[0:NFAKE]
+    raw_fake_counts = raw_fake_counts[0:NFAKE]
 
-    raw_fake_images_renorm = (raw_fake_images*0.5+0.5)*255.0
-    raw_fake_images_renorm = raw_fake_images_renorm.astype(np.uint8)
-
-    if path is not None:
-        for i in range(NFAKE):
-            filename = path + '/' + str(i) + '.jpg'
-            im = Image.fromarray(raw_fake_images_renorm[i][0], mode='L')
-            im = im.save(filename)
-
-    return raw_fake_images
+    return raw_fake_images, raw_fake_counts.reshape(-1)

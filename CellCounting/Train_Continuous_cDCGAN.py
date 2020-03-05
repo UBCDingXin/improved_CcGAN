@@ -60,24 +60,35 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     # z_fixed = torch.randn(n_row**2, dim_GAN, dtype=torch.float).to(device)
     z_fixed = torch.from_numpy(sample_Gaussian(n_row**2, dim_GAN)).type(torch.float).to(device)
 
-    unique_labels = np.array(list(set(train_labels)))
-    unique_labels = np.sort(unique_labels)
-    assert len(unique_labels) >= n_row
+    # unique_labels = np.array(list(set(train_labels)))
+    # unique_labels = np.sort(unique_labels)
+    # assert len(unique_labels) >= n_row
+    # y_fixed = np.zeros(n_row**2)
+    # for i in range(n_row):
+    #     if i == 0:
+    #         curr_label = np.min(unique_labels)
+    #     else:
+    #         if np.max(unique_labels)<=1:
+    #             if curr_label+0.1 <= 1:
+    #                 curr_label += 0.1
+    #         else:
+    #             curr_label += 10
+    #     for j in range(n_row):
+    #         y_fixed[i*n_row+j] = curr_label
+    # print(y_fixed)
+    # y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
+
+
+    min_label = np.min(train_labels)
+    max_label = np.max(train_labels)
+    selected_labels = np.linspace(min_label, max_label, num=n_row)
     y_fixed = np.zeros(n_row**2)
     for i in range(n_row):
-        if i == 0:
-            curr_label = np.min(unique_labels)
-        else:
-            if np.max(unique_labels)<=1:
-                if curr_label+0.1 <= 1:
-                    curr_label += 0.1
-            else:
-                curr_label += 10
+        curr_label = selected_labels[i]
         for j in range(n_row):
             y_fixed[i*n_row+j] = curr_label
     print(y_fixed)
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
-
 
 
     start_tmp = timeit.default_timer()
@@ -109,13 +120,15 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
             # z_2 = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
             z_2 = torch.from_numpy(sample_Gaussian(BATCH_SIZE, dim_GAN)).type(torch.float).to(device)
             batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2)
+            # batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2 + batch_epsilons_tensor_1)
 
 
             # Loss measures generator's ability to fool the discriminator
             dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2)
+            # dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2 + batch_epsilons_tensor_1)
 
             # no weights
-            g_loss = - torch.mean(torch.log(dis_out))
+            g_loss = - torch.mean(torch.log(dis_out+1e-20))
 
             g_loss.backward()
             optimizerG.step()
@@ -144,18 +157,19 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
                 fake_weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
             else:
                 real_weights_x_j = np.zeros(BATCH_SIZE)
-                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) < kappa)[0]
+                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) <= kappa)[0]
                 real_weights_x_j[indx] = 1
 
                 fake_weights_x_j = np.zeros(BATCH_SIZE)
-                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) < kappa)[0]
+                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) <= kappa)[0]
                 fake_weights_x_j[indx] = 1
 
             real_weights_x_j = torch.from_numpy(real_weights_x_j).type(torch.float).to(device)
             fake_weights_x_j = torch.from_numpy(fake_weights_x_j).type(torch.float).to(device)
 
 
-            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out)) #only add weights to real out
+            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out+1e-20)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out+1e-20))
+
 
             d_loss.backward()
             optimizerD.step()

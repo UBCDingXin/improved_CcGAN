@@ -252,32 +252,33 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     return netG, netD, optimizerG, optimizerD
 
 
-def SampcDCGAN(netG, dim_GAN = 128, NFAKE = 10000, batch_size = 500, device="cuda", normalize_count = False, shift_label = 0, max_label = 1):
+def SampCcGAN_given_label(netG, label, path=None, dim_GAN = 128, NFAKE = 10000, batch_size = 500, device="cuda"):
     #netD: whether assign weights to fake images via inversing f function (the f in f-GAN)
     if batch_size>NFAKE:
         batch_size = NFAKE
     raw_fake_images = np.zeros((NFAKE+batch_size, NC, IMG_SIZE, IMG_SIZE), dtype=np.float)
-    raw_fake_counts = np.zeros(NFAKE+batch_size, dtype=np.float)
     netG=netG.to(device)
     netG.eval()
     with torch.no_grad():
         tmp = 0
         while tmp < NFAKE:
             z = torch.randn(batch_size, dim_GAN, dtype=torch.float).to(device)
-            y = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2)
+            y = np.ones(batch_size) * label
             y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
-            if normalize_count:
-                y += shift_label
-                y /= max_label
-                y = (y-0.5)/0.5
-
             batch_fake_images = netG(z, y)
             raw_fake_images[tmp:(tmp+batch_size)] = batch_fake_images.cpu().detach().numpy()
-            raw_fake_counts[tmp:(tmp+batch_size)] = y.cpu().view(-1).detach().numpy()
             tmp += batch_size
 
     #remove extra entries
     raw_fake_images = raw_fake_images[0:NFAKE]
-    raw_fake_counts = raw_fake_counts[0:NFAKE]
 
-    return raw_fake_images, raw_fake_counts.reshape(-1)
+    raw_fake_images_renorm = (raw_fake_images*0.5+0.5)*255.0
+    raw_fake_images_renorm = raw_fake_images_renorm.astype(np.uint8)
+
+    if path is not None:
+        for i in range(NFAKE):
+            filename = path + '/' + str(i) + '.jpg'
+            im = Image.fromarray(raw_fake_images_renorm[i][0], mode='L')
+            im = im.save(filename)
+
+    return raw_fake_images

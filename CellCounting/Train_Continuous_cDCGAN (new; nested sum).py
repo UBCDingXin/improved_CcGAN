@@ -109,10 +109,12 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
             # z_2 = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
             z_2 = torch.from_numpy(sample_Gaussian(BATCH_SIZE, dim_GAN)).type(torch.float).to(device)
             batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2)
+            # batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2 + batch_epsilons_tensor_1)
 
 
             # Loss measures generator's ability to fool the discriminator
             dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2)
+            # dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2 + batch_epsilons_tensor_1)
 
             # no weights
             g_loss = - torch.mean(torch.log(dis_out+1e-20))
@@ -155,7 +157,8 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
             fake_weights_x_j = torch.from_numpy(fake_weights_x_j).type(torch.float).to(device)
 
 
-            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out+1e-20)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out+1e-20)) #should we add weights to fake out?????
+            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out+1e-20)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out+1e-20))
+
 
             d_loss.backward()
             optimizerD.step()
