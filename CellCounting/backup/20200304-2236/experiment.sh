@@ -2,11 +2,6 @@
 
 ## tensorboard --logdir /home/xin/OneDrive/Working_directory/Continuous_cGAN/CellCounting/Output/saved_logs
 
-echo "########################################################################################"
-echo "                         Run script with ONE GPU !!!!                                   "
-echo "########################################################################################"
-
-
 
 SEED=2020
 
@@ -35,7 +30,7 @@ echo "##########################################################################
 echo "########################################################################################"
 echo "                                 Continuous_cDCGAN                                      "
 echo "########################################################################################"
-EPOCH_GAN=1000
+EPOCH_GAN=2000
 BATCH_SIZE=256
 
 ### Hard
@@ -63,7 +58,7 @@ done
 
 ### Soft
 
-for factor in 1.0 2.0 3.0 4.0
+for factor in 1.0 2.0 2.5 3.0 3.5
 do
   kernel_sigma=0.01
   kappa=$(echo "$factor*$kernel_sigma" | bc)
@@ -73,7 +68,7 @@ do
   CUDA_VISIBLE_DEVICES=1,0 CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma $kernel_sigma --threshold_type soft --kappa $kappa --dim_gan 128 --epoch_gan $EPOCH_GAN --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan $BATCH_SIZE --resumeTrain_gan 0 --seed $SEED
 done
 
-for factor in 1.0 2.0 3.0 4.0
+for factor in 1.0 2.0 2.5 3.0 3.5
 do
   kernel_sigma=0.02
   kappa=$(echo "$factor*$kernel_sigma" | bc)

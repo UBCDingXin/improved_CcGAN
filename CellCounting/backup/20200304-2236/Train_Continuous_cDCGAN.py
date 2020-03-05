@@ -189,15 +189,6 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
                 with torch.no_grad():
                     gen_imgs = netG(z_fixed, y_fixed)
                     gen_imgs = gen_imgs.detach()
-                    # for i in range(n_row): # do not generate all images at once if we use more than one GPUs. It may cause problems.
-                    #     fixed_labels_i = np.ones((n_row, 1)) * selected_labels[i]
-                    #     fixed_labels_i = torch.from_numpy(fixed_labels_i).type(torch.float).to(device)
-                    #     if i == 0:
-                    #         gen_imgs = netG(z_fixed[0:n_row], fixed_labels_i).cpu().numpy()
-                    #     else:
-                    #         imgs_i = netG(z_fixed[(i*n_row):((i+1)*n_row)], fixed_labels_i).cpu().numpy()
-                    #         gen_imgs = np.concatenate((gen_imgs, imgs_i), axis=0)
-                    # gen_imgs = torch.from_numpy(gen_imgs)
                 save_image(gen_imgs.data, save_images_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
 
         if save_models_folder is not None and (epoch+1) % 500 == 0:

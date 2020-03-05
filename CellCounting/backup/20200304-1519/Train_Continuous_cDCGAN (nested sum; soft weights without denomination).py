@@ -60,35 +60,24 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     # z_fixed = torch.randn(n_row**2, dim_GAN, dtype=torch.float).to(device)
     z_fixed = torch.from_numpy(sample_Gaussian(n_row**2, dim_GAN)).type(torch.float).to(device)
 
-    # unique_labels = np.array(list(set(train_labels)))
-    # unique_labels = np.sort(unique_labels)
-    # assert len(unique_labels) >= n_row
-    # y_fixed = np.zeros(n_row**2)
-    # for i in range(n_row):
-    #     if i == 0:
-    #         curr_label = np.min(unique_labels)
-    #     else:
-    #         if np.max(unique_labels)<=1:
-    #             if curr_label+0.1 <= 1:
-    #                 curr_label += 0.1
-    #         else:
-    #             curr_label += 10
-    #     for j in range(n_row):
-    #         y_fixed[i*n_row+j] = curr_label
-    # print(y_fixed)
-    # y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
-
-
-    min_label = np.min(train_labels)
-    max_label = np.max(train_labels)
-    selected_labels = np.linspace(min_label, max_label, num=n_row)
+    unique_labels = np.array(list(set(train_labels)))
+    unique_labels = np.sort(unique_labels)
+    assert len(unique_labels) >= n_row
     y_fixed = np.zeros(n_row**2)
     for i in range(n_row):
-        curr_label = selected_labels[i]
+        if i == 0:
+            curr_label = np.min(unique_labels)
+        else:
+            if np.max(unique_labels)<=1:
+                if curr_label+0.1 <= 1:
+                    curr_label += 0.1
+            else:
+                curr_label += 10
         for j in range(n_row):
             y_fixed[i*n_row+j] = curr_label
     print(y_fixed)
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
+
 
 
     start_tmp = timeit.default_timer()
@@ -120,12 +109,10 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
             # z_2 = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
             z_2 = torch.from_numpy(sample_Gaussian(BATCH_SIZE, dim_GAN)).type(torch.float).to(device)
             batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2)
-            # batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2 + batch_epsilons_tensor_1)
 
 
             # Loss measures generator's ability to fool the discriminator
             dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2)
-            # dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2 + batch_epsilons_tensor_1)
 
             # no weights
             g_loss = - torch.mean(torch.log(dis_out+1e-20))
@@ -168,8 +155,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
             fake_weights_x_j = torch.from_numpy(fake_weights_x_j).type(torch.float).to(device)
 
 
-            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out+1e-20)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out+1e-20))
-
+            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out+1e-20)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out+1e-20)) #should we add weights to fake out?????
 
             d_loss.backward()
             optimizerD.step()
@@ -189,15 +175,6 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
                 with torch.no_grad():
                     gen_imgs = netG(z_fixed, y_fixed)
                     gen_imgs = gen_imgs.detach()
-                    # for i in range(n_row): # do not generate all images at once if we use more than one GPUs. It may cause problems.
-                    #     fixed_labels_i = np.ones((n_row, 1)) * selected_labels[i]
-                    #     fixed_labels_i = torch.from_numpy(fixed_labels_i).type(torch.float).to(device)
-                    #     if i == 0:
-                    #         gen_imgs = netG(z_fixed[0:n_row], fixed_labels_i).cpu().numpy()
-                    #     else:
-                    #         imgs_i = netG(z_fixed[(i*n_row):((i+1)*n_row)], fixed_labels_i).cpu().numpy()
-                    #         gen_imgs = np.concatenate((gen_imgs, imgs_i), axis=0)
-                    # gen_imgs = torch.from_numpy(gen_imgs)
                 save_image(gen_imgs.data, save_images_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
 
         if save_models_folder is not None and (epoch+1) % 500 == 0:

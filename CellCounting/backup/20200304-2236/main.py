@@ -280,13 +280,11 @@ elif args.GAN == "WGANGP"  and not os.path.isfile(Filename_GAN):
 #----------------------------------------------
 # cDCGAN
 elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
-    netG = cond_cnn_generator(args.dim_gan)
-    netD = cond_cnn_discriminator(True)
+    netG = cond_cnn_generator(NGPU, args.dim_gan)
+    netD = cond_cnn_discriminator(True, NGPU)
     if args.resumeTrain_gan==0:
         netG.apply(weights_init)
         netD.apply(weights_init)
-    netG = nn.DataParallel(netG)
-    netD = nn.DataParallel(netD)
     criterion = nn.BCELoss()
     optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
@@ -313,8 +311,6 @@ elif args.GAN == "cWGANGP" and not os.path.isfile(Filename_GAN):
     if args.resumeTrain_gan==0:
         netG.apply(weights_init)
         netD.apply(weights_init)
-    netG = nn.DataParallel(netG)
-    netD = nn.DataParallel(netD)
     criterion = nn.BCELoss()
     optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
@@ -338,13 +334,11 @@ elif args.GAN == "cWGANGP" and not os.path.isfile(Filename_GAN):
 # Concitnuous cDCGAN
 elif args.GAN == "Continuous_cDCGAN":
     if not os.path.isfile(Filename_GAN):
-        netG = cond_cnn_generator(args.dim_gan)
-        netD = cond_cnn_discriminator(True)
+        netG = cond_cnn_generator(NGPU, args.dim_gan)
+        netD = cond_cnn_discriminator(True, NGPU)
         if args.resumeTrain_gan==0:
             netG.apply(weights_init)
             netD.apply(weights_init)
-        netG = nn.DataParallel(netG)
-        netD = nn.DataParallel(netD)
         optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
         optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
@@ -365,8 +359,7 @@ elif args.GAN == "Continuous_cDCGAN":
         #     return images, cellcounts
     else:
         checkpoint = torch.load(Filename_GAN)
-        netG = cond_cnn_generator(args.dim_gan).to(device)
-        netG = nn.DataParallel(netG)
+        netG = cond_cnn_generator(NGPU, args.dim_gan).to(device)
         netG.load_state_dict(checkpoint['netG_state_dict'])
 
     num_unique_counts_output = 50
@@ -382,13 +375,11 @@ elif args.GAN == "Continuous_cDCGAN":
 # Concitnuous cWGANGP
 elif args.GAN == "Continuous_cWGANGP":
     if not os.path.isfile(Filename_GAN):
-        netG = cond_cnn_generator(args.dim_gan)
-        netD = cond_cnn_discriminator(False)
+        netG = cond_cnn_generator(NGPU, args.dim_gan)
+        netD = cond_cnn_discriminator(False, NGPU)
         if args.resumeTrain_gan==0:
             netG.apply(weights_init)
             netD.apply(weights_init)
-        netG = nn.DataParallel(netG)
-        netD = nn.DataParallel(netD)
         optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
         optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
@@ -409,8 +400,7 @@ elif args.GAN == "Continuous_cWGANGP":
         #     return images, cellcounts
     else:
         checkpoint = torch.load(Filename_GAN)
-        netG = cond_cnn_generator(args.dim_gan).to(device)
-        netG = nn.DataParallel(netG)
+        netG = cond_cnn_generator(NGPU, args.dim_gan).to(device)
         netG.load_state_dict(checkpoint['netG_state_dict'])
 
     num_unique_counts_output = 50

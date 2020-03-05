@@ -40,8 +40,6 @@ from Train_Continuous_cWGANGP import *
 #######################################################################################
 parser = argparse.ArgumentParser(description='Density-ratio based sampling for GANs')
 
-parser.add_argument('--Dataset', type=str, default='C300',
-                    choices=['VGG','C300'])
 parser.add_argument('--GAN', type=str, default='Continuous_cDCGAN',
                     choices=['DCGAN', 'cDCGAN', 'WGANGP', 'cWGANGP', 'Continuous_cDCGAN', 'Continuous_cWGANGP'])
 parser.add_argument('--seed', type=int, default=2019, metavar='S',
@@ -132,47 +130,41 @@ os.makedirs(save_traincurves_folder, exist_ok=True)
 '''                                    Data loader                                 '''
 #######################################################################################
 # data loader
-
-if args.Dataset=='VGG':
-    h5py_file = wd+'/data/VGG_dataset_64x64.h5'
-    hf = h5py.File(h5py_file, 'r')
-    counts = hf['CellCounts'][:]
-    counts = counts.astype(np.float)
-    images = hf['IMGs_grey'][:]
-    hf.close()
-elif args.Dataset=='C300':
-    h5py_file = wd+'/data/cell_dataset_resize_64x64.h5'
-    hf = h5py.File(h5py_file, 'r')
-    counts = hf['CellCounts'][:]
-    counts = counts.astype(np.float)
-    images = hf['IMGs_grey'][:]
-    hf.close()
-
-    # for each cell count select n_imgs_per_cellcount images
-    n_imgs_per_cellcount = 20
-    # unique_cellcounts = list(set(counts))
-    # n_unique_cellcount = len(unique_cellcounts)
-    selected_cellcounts = np.arange(5, 110, 2)
-    n_unique_cellcount = len(selected_cellcounts)
+# h5py_file = wd+'/data/VGG_dataset_64x64.h5'
+h5py_file = wd+'/data/cell_dataset_resize_64x64.h5'
+hf = h5py.File(h5py_file, 'r')
+counts = hf['CellCounts'][:]
+counts = counts.astype(np.float)
+images = hf['IMGs_grey'][:]
+hf.close()
 
 
-    images_subset = np.zeros((n_imgs_per_cellcount*n_unique_cellcount, 1, IMG_SIZE, IMG_SIZE), dtype=np.uint8)
-    counts_subset = np.zeros(n_imgs_per_cellcount*n_unique_cellcount)
-    for i in range(n_unique_cellcount):
-        # curr_cellcount = unique_cellcounts[i]
-        curr_cellcount = selected_cellcounts[i]
-        index_curr_cellcount = np.where(counts==curr_cellcount)[0]
 
-        if i == 0:
-            images_subset = images[index_curr_cellcount[0:n_imgs_per_cellcount]]
-            counts_subset = counts[index_curr_cellcount[0:n_imgs_per_cellcount]]
-        else:
-            images_subset = np.concatenate((images_subset, images[index_curr_cellcount[0:n_imgs_per_cellcount]]), axis=0)
-            counts_subset = np.concatenate((counts_subset, counts[index_curr_cellcount[0:n_imgs_per_cellcount]]))
-    # for i
-    images = images_subset
-    counts = counts_subset
-    del images_subset, counts_subset; gc.collect()
+# for each cell count select n_imgs_per_cellcount images
+n_imgs_per_cellcount = 20
+# unique_cellcounts = list(set(counts))
+# n_unique_cellcount = len(unique_cellcounts)
+selected_cellcounts = np.arange(5, 110, 2)
+n_unique_cellcount = len(selected_cellcounts)
+
+
+images_subset = np.zeros((n_imgs_per_cellcount*n_unique_cellcount, 1, IMG_SIZE, IMG_SIZE), dtype=np.uint8)
+counts_subset = np.zeros(n_imgs_per_cellcount*n_unique_cellcount)
+for i in range(n_unique_cellcount):
+    # curr_cellcount = unique_cellcounts[i]
+    curr_cellcount = selected_cellcounts[i]
+    index_curr_cellcount = np.where(counts==curr_cellcount)[0]
+
+    if i == 0:
+        images_subset = images[index_curr_cellcount[0:n_imgs_per_cellcount]]
+        counts_subset = counts[index_curr_cellcount[0:n_imgs_per_cellcount]]
+    else:
+        images_subset = np.concatenate((images_subset, images[index_curr_cellcount[0:n_imgs_per_cellcount]]), axis=0)
+        counts_subset = np.concatenate((counts_subset, counts[index_curr_cellcount[0:n_imgs_per_cellcount]]))
+# for i
+images = images_subset
+counts = counts_subset
+del images_subset, counts_subset; gc.collect()
 
 print("Number of images: %d" % len(images))
 
@@ -280,13 +272,11 @@ elif args.GAN == "WGANGP"  and not os.path.isfile(Filename_GAN):
 #----------------------------------------------
 # cDCGAN
 elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
-    netG = cond_cnn_generator(args.dim_gan)
-    netD = cond_cnn_discriminator(True)
+    netG = cond_cnn_generator(NGPU, args.dim_gan)
+    netD = cond_cnn_discriminator(True, NGPU)
     if args.resumeTrain_gan==0:
         netG.apply(weights_init)
         netD.apply(weights_init)
-    netG = nn.DataParallel(netG)
-    netD = nn.DataParallel(netD)
     criterion = nn.BCELoss()
     optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
@@ -313,8 +303,6 @@ elif args.GAN == "cWGANGP" and not os.path.isfile(Filename_GAN):
     if args.resumeTrain_gan==0:
         netG.apply(weights_init)
         netD.apply(weights_init)
-    netG = nn.DataParallel(netG)
-    netD = nn.DataParallel(netD)
     criterion = nn.BCELoss()
     optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
@@ -338,13 +326,11 @@ elif args.GAN == "cWGANGP" and not os.path.isfile(Filename_GAN):
 # Concitnuous cDCGAN
 elif args.GAN == "Continuous_cDCGAN":
     if not os.path.isfile(Filename_GAN):
-        netG = cond_cnn_generator(args.dim_gan)
-        netD = cond_cnn_discriminator(True)
+        netG = cond_cnn_generator(NGPU, args.dim_gan)
+        netD = cond_cnn_discriminator(True, NGPU)
         if args.resumeTrain_gan==0:
             netG.apply(weights_init)
             netD.apply(weights_init)
-        netG = nn.DataParallel(netG)
-        netD = nn.DataParallel(netD)
         optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
         optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
@@ -365,8 +351,7 @@ elif args.GAN == "Continuous_cDCGAN":
         #     return images, cellcounts
     else:
         checkpoint = torch.load(Filename_GAN)
-        netG = cond_cnn_generator(args.dim_gan).to(device)
-        netG = nn.DataParallel(netG)
+        netG = cond_cnn_generator(NGPU, args.dim_gan).to(device)
         netG.load_state_dict(checkpoint['netG_state_dict'])
 
     num_unique_counts_output = 50
@@ -382,13 +367,11 @@ elif args.GAN == "Continuous_cDCGAN":
 # Concitnuous cWGANGP
 elif args.GAN == "Continuous_cWGANGP":
     if not os.path.isfile(Filename_GAN):
-        netG = cond_cnn_generator(args.dim_gan)
-        netD = cond_cnn_discriminator(False)
+        netG = cond_cnn_generator(NGPU, args.dim_gan)
+        netD = cond_cnn_discriminator(False, NGPU)
         if args.resumeTrain_gan==0:
             netG.apply(weights_init)
             netD.apply(weights_init)
-        netG = nn.DataParallel(netG)
-        netD = nn.DataParallel(netD)
         optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
         optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
@@ -409,8 +392,7 @@ elif args.GAN == "Continuous_cWGANGP":
         #     return images, cellcounts
     else:
         checkpoint = torch.load(Filename_GAN)
-        netG = cond_cnn_generator(args.dim_gan).to(device)
-        netG = nn.DataParallel(netG)
+        netG = cond_cnn_generator(NGPU, args.dim_gan).to(device)
         netG.load_state_dict(checkpoint['netG_state_dict'])
 
     num_unique_counts_output = 50
