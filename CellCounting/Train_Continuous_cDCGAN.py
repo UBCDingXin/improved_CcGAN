@@ -57,31 +57,6 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     # z_fixed = torch.randn(n_row**2, dim_GAN, dtype=torch.float).to(device)
     z_fixed = torch.from_numpy(sample_Gaussian(n_row**2, dim_GAN)).type(torch.float).to(device)
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-    # unique_labels = np.array(list(set(train_labels)))
-    # unique_labels = np.sort(unique_labels)
-    # assert len(unique_labels) >= n_row
-    # y_fixed = np.zeros(n_row**2)
-    # for i in range(n_row):
-    #     if i == 0:
-    #         curr_label = np.min(unique_labels)
-    #     else:
-    #         if np.max(unique_labels)<=1:
-    #             if curr_label+0.1 <= 1:
-    #                 curr_label += 0.1
-    #         else:
-    #             curr_label += 10
-    #     for j in range(n_row):
-    #         y_fixed[i*n_row+j] = curr_label
-    # print(y_fixed)
-    # y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
-
-
->>>>>>> 7ac9937253c320ac79df75051df2f3f4848e2534
->>>>>>> 740531af0a182b1d40d461b5b996b744d21e1182
     min_label = np.min(train_labels)
     max_label = np.max(train_labels)
     selected_labels = np.linspace(min_label, max_label, num=n_row)
@@ -125,7 +100,6 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
 
             z_2 = torch.from_numpy(sample_Gaussian(BATCH_SIZE, dim_GAN)).type(torch.float).to(device)
             batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2)
-
 
 
 
