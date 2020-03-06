@@ -2,7 +2,11 @@ import os
 from PIL import Image, ImageDraw, ImageSequence
 import io
 
+<<<<<<< HEAD
 GAN = 'Continuous_cDCGAN_soft_0.01_0.01'
+=======
+GAN = 'Continuous_cDCGAN_hard_0.01_0.04'
+>>>>>>> 7ac9937253c320ac79df75051df2f3f4848e2534
 
 path = '/home/xin/OneDrive/Working_directory/Continuous_cGAN/CellCounting/Output/saved_images/' + GAN + '_InTrain'
 
