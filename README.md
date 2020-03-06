@@ -2,25 +2,18 @@
 
 Onenote address: https://1drv.ms/u/s!Arj2pETbYnWQo5dkN7nmDPnGFoz-aw?e=r8JhnH
 
+# 1. Cell-110
+Cell counts from the toppest row to the lowest row are 5, 17, 28, 40, 52, 63, 75, 86, 98, 110 
+## HVDL: sigma=0.01, kappa=0.02
+![](./images/Cell110/Continuous_cDCGAN_hard_0.01_0.02.gif)
 
-# 1. Quick Check: Standard DCGAN/cDCGAN/WGANGP/cWGANGP on VGG dataset (Cell Counting)
+## HVDL: sigma=0.02, kappa=0.04
+![](./images/Cell110/Continuous_cDCGAN_hard_0.02_0.04.gif)
 
-## DCGAN
-![](./images/CellCounting/DCGAN.gif)
+## SVDL: sigma=0.01, kappa=0.02
+![](./images/Cell110/Continuous_cDCGAN_soft_0.01_0.02.gif)
 
-## cDCGAN (cell count is a float number)
-![](./images/CellCounting/cDCGAN_float.gif)
-
-## cDCGAN (cell count is a 16-bit integer)
-![](./images/CellCounting/cDCGAN_16bit.gif)
+## SVDL: sigma=0.02, kappa=0.04
+![](./images/Cell110/Continuous_cDCGAN_soft_0.02_0.04.gif)
 
 
-# 2. Quick Check: cDCGAN on MNIST without One-hot Encoding and Label Embedding
-
-## cDCGAN (label is a float number)
-![](./images/MNIST/cDCGAN_float.gif)
-
-## cDCGAN (label is a 16-bit integer)
-![](./images/MNIST/cDCGAN_16bit.gif)
-
-# 3. WIKI Set

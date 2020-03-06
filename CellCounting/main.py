@@ -30,10 +30,7 @@ from utils import *
 from models import *
 from Train_DCGAN import *
 from Train_cDCGAN import *
-from Train_WGAN import *
-from Train_cWGAN import *
 from Train_Continuous_cDCGAN import *
-from Train_Continuous_cWGANGP import *
 
 #######################################################################################
 '''                                   Settings                                      '''
@@ -42,8 +39,12 @@ parser = argparse.ArgumentParser(description='Density-ratio based sampling for G
 
 parser.add_argument('--Dataset', type=str, default='C300',
                     choices=['VGG','C300'])
+parser.add_argument('--num_imgs_per_count', type=int, default=20, metavar='N',
+                    help='number of images for each cell count')
+
+
 parser.add_argument('--GAN', type=str, default='Continuous_cDCGAN',
-                    choices=['DCGAN', 'cDCGAN', 'WGANGP', 'cWGANGP', 'Continuous_cDCGAN', 'Continuous_cWGANGP'])
+                    choices=['DCGAN', 'cDCGAN', 'Continuous_cDCGAN'])
 parser.add_argument('--seed', type=int, default=2019, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--transform', action='store_true', default=False,
@@ -79,13 +80,13 @@ parser.add_argument('--nfake', type=int, default=50000)
 
 args = parser.parse_args()
 
+print("Sigma is {}, Kappa is {}".format(args.kernel_sigma, args.kappa))
+
+
 #-----------------------------
 # images
 NC = 1 #number of channels
 IMG_SIZE = 64
-n_all = 200
-# nvalid = int(n_all/args.nfolds)
-# ntrain = n_all-nvalid
 
 #--------------------------------
 # system
@@ -149,7 +150,7 @@ elif args.Dataset=='C300':
     hf.close()
 
     # for each cell count select n_imgs_per_cellcount images
-    n_imgs_per_cellcount = 20
+    n_imgs_per_cellcount = args.num_imgs_per_count
     # unique_cellcounts = list(set(counts))
     # n_unique_cellcount = len(unique_cellcounts)
     selected_cellcounts = np.arange(5, 110, 2)
@@ -159,7 +160,6 @@ elif args.Dataset=='C300':
     images_subset = np.zeros((n_imgs_per_cellcount*n_unique_cellcount, 1, IMG_SIZE, IMG_SIZE), dtype=np.uint8)
     counts_subset = np.zeros(n_imgs_per_cellcount*n_unique_cellcount)
     for i in range(n_unique_cellcount):
-        # curr_cellcount = unique_cellcounts[i]
         curr_cellcount = selected_cellcounts[i]
         index_curr_cellcount = np.where(counts==curr_cellcount)[0]
 
@@ -176,37 +176,38 @@ elif args.Dataset=='C300':
 
 print("Number of images: %d" % len(images))
 
+if args.GAN == "cDCGAN": #treated as classification; convert cell counts to class labels
+    unique_counts = np.sort(np.array(list(set(counts)))).astype(np.int)
+    count2class = dict()
+    for i in range(len(unique_counts)):
+        count2class[unique_counts[i]]=i
+    counts_new = -1*np.ones(len(counts))
+    for i in range(len(counts)):
+        counts_new[i] = count2class[counts[i]]
+    assert np.sum(counts_new<0)==0
+    counts = counts_new
+    del counts_new; gc.collect()
+    unique_counts = np.sort(np.array(list(set(counts)))).astype(np.int) #update unique_counts
+else:
+    #normalize count
+    if args.normalize_count:
+        min_count = np.min(counts)
+        max_count = np.max(counts)
+        if min_count<0:
+            shift_count = abs(min_count)
+            max_count = max_count + shift_count
+        else:
+            shift_count = 0
 
-#normalize count
-if args.normalize_count:
-    min_count = np.min(counts)
-    max_count = np.max(counts)
-    if min_count<0:
-        shift_count = abs(min_count)
-        max_count = max_count + shift_count
+        counts += shift_count
+        counts /= max_count # [0,1]
+
     else:
         shift_count = 0
-
-    counts += shift_count
-    counts /= max_count # [0,1]
-
-    # counts = (counts-0.5)/0.5
-
-    # mean_count = np.mean(counts)
-    # std_count = np.std(counts)
-    # counts = (counts-mean_count)/std_count
-
-else:
-    shift_count = 0
-    max_count = 1
+        max_count = 1
 
 
 
-
-
-# kernel_sigma = np.std(counts)
-kernel_sigma = args.kernel_sigma
-print("Sigma of kernel is %f" % kernel_sigma)
 
 if args.transform:
     trainset = IMGs_dataset(images, counts, normalize=True, rotate=True, degrees = [90,180,270], hflip = True, vflip = True)
@@ -253,35 +254,12 @@ if args.GAN == "DCGAN" and not os.path.isfile(Filename_GAN):
     #     return images
 
 #----------------------------------------------
-# WGANGP
-elif args.GAN == "WGANGP"  and not os.path.isfile(Filename_GAN):
-    netG = cnn_generator(NGPU, args.dim_gan)
-    netD = cnn_discriminator(False, NGPU)
-    if args.resumeTrain_gan==0:
-        netG.apply(weights_init)
-        netD.apply(weights_init)
-    criterion = nn.BCELoss()
-    optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
-    optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
-
-    # Start training
-    netG, netD, optimizerG, optimizerD = train_WGANGP(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan)
-    # store model
-    torch.save({
-        'netG_state_dict': netG.state_dict(),
-        'netD_state_dict': netD.state_dict(),
-    }, Filename_GAN)
-
-    # # function for sampling from a trained GAN
-    # def fn_sampleGAN_no_label(nfake, batch_size):
-    #     images = SampWGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, device=device)
-    #     return images
-
-#----------------------------------------------
-# cDCGAN
+# cDCGAN: treated as a classification dataset
 elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
-    netG = cond_cnn_generator(args.dim_gan)
-    netD = cond_cnn_discriminator(True)
+    print("There are {} unique cell counts".format(len(unique_counts)))
+
+    netG = cond_cnn_generator(args.dim_gan, num_classes=len(unique_counts))
+    netD = cond_cnn_discriminator(True, num_classes=len(unique_counts))
     if args.resumeTrain_gan==0:
         netG.apply(weights_init)
         netD.apply(weights_init)
@@ -292,7 +270,7 @@ elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
     # Start training
-    netG, netD, optimizerG, optimizerD = train_cDCGAN(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
+    netG, netD, optimizerG, optimizerD = train_cDCGAN(unique_counts, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan)
 
     # store model
     torch.save({
@@ -306,40 +284,11 @@ elif args.GAN == "cDCGAN"  and not os.path.isfile(Filename_GAN):
     #     return images, cellcounts
 
 #----------------------------------------------
-# cWGANGP
-elif args.GAN == "cWGANGP" and not os.path.isfile(Filename_GAN):
-    netG = cond_cnn_generator(NGPU, args.dim_gan)
-    netD = cond_cnn_discriminator(False, NGPU)
-    if args.resumeTrain_gan==0:
-        netG.apply(weights_init)
-        netD.apply(weights_init)
-    netG = nn.DataParallel(netG)
-    netD = nn.DataParallel(netD)
-    criterion = nn.BCELoss()
-    optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
-    optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
-
-    # Start training
-    netG, netD, optimizerG, optimizerD = train_cWGANGP(args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, LAMBDA = 10, CRITIC_ITERS=5, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
-
-    # store model
-    torch.save({
-        'netG_state_dict': netG.state_dict(),
-        'netD_state_dict': netD.state_dict(),
-    }, Filename_GAN)
-
-    # # function for sampling from a trained GAN
-    # def fn_sampleGAN_with_label(nfake, batch_size):
-    #     images, cellcounts = SampcWANGP(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
-    #     return images, cellcounts
-
-
-#----------------------------------------------
 # Concitnuous cDCGAN
 elif args.GAN == "Continuous_cDCGAN":
     if not os.path.isfile(Filename_GAN):
-        netG = cond_cnn_generator(args.dim_gan)
-        netD = cond_cnn_discriminator(True)
+        netG = cont_cond_cnn_generator(args.dim_gan)
+        netD = cont_cond_cnn_discriminator(True)
         if args.resumeTrain_gan==0:
             netG.apply(weights_init)
             netD.apply(weights_init)
@@ -351,7 +300,7 @@ elif args.GAN == "Continuous_cDCGAN":
         tfboard_writer = SummaryWriter(wd+'/Output/saved_logs')
 
         # Start training
-        netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, kernel_sigma, args.threshold_type, args.kappa, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
+        netG, netD, optimizerG, optimizerD = train_Continuous_cDCGAN(counts, args.kernel_sigma, args.threshold_type, args.kappa, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
 
         # store model
         torch.save({
@@ -378,49 +327,6 @@ elif args.GAN == "Continuous_cDCGAN":
         curr_count = output_counts_range[i]
         _ = SampCcGAN_given_label(netG, curr_count, path=curr_folder, dim_GAN = 128, NFAKE = 100, batch_size = 100, device="cuda")
 
-#----------------------------------------------
-# Concitnuous cWGANGP
-elif args.GAN == "Continuous_cWGANGP":
-    if not os.path.isfile(Filename_GAN):
-        netG = cond_cnn_generator(args.dim_gan)
-        netD = cond_cnn_discriminator(False)
-        if args.resumeTrain_gan==0:
-            netG.apply(weights_init)
-            netD.apply(weights_init)
-        netG = nn.DataParallel(netG)
-        netD = nn.DataParallel(netD)
-        optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
-        optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
-
-        tfboard_writer = SummaryWriter(wd+'/Output/saved_logs')
-
-        # Start training
-        netG, netD, optimizerG, optimizerD = train_Continuous_cWGANGP(counts, kernel_sigma, args.threshold_type, args.kappa, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
-
-        # store model
-        torch.save({
-            'netG_state_dict': netG.state_dict(),
-            'netD_state_dict': netD.state_dict(),
-        }, Filename_GAN)
-
-        # # function for sampling from a trained GAN
-        # def fn_sampleGAN_with_label(nfake, batch_size):
-        #     images, cellcounts = SampcDCGAN(netG, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, normalize_count = args.normalize_count, shift_label = shift_count, max_label = max_count)
-        #     return images, cellcounts
-    else:
-        checkpoint = torch.load(Filename_GAN)
-        netG = cond_cnn_generator(args.dim_gan).to(device)
-        netG = nn.DataParallel(netG)
-        netG.load_state_dict(checkpoint['netG_state_dict'])
-
-    num_unique_counts_output = 50
-    output_counts_range = np.linspace(np.min(counts), np.max(counts), num=num_unique_counts_output)
-
-    for i in range(num_unique_counts_output):
-        curr_folder = save_GANimages_folder + '/' +  str(output_counts_range[i])
-        os.makedirs(curr_folder, exist_ok=True)
-        curr_count = output_counts_range[i]
-        _ = SampCcGAN_given_label(netG, curr_count, path=curr_folder, dim_GAN = 128, NFAKE = 100, batch_size = 100, device="cuda")
 
 
 
