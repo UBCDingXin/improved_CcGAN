@@ -14,9 +14,6 @@ from PIL import Image
 NC=1
 IMG_SIZE=64
 
-#MIN_LABEL=74
-#MAX_LABEL=317
-
 
 ############################################################################################
 # Train Continuous cDCGAN
@@ -33,7 +30,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     train_labels = train_labels.reshape(-1) #do not shuffle train_labels because its order matters
     n_train = len(train_labels)
 
-    std_count = np.std(train_labels)
+    # std_count = np.std(train_labels)
     def sample_Gaussian(n, dim, mean=0, sigma=1):
         samples = np.random.normal(mean, sigma, n*dim)
         return samples.reshape((n, dim))
@@ -44,7 +41,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     netD = netD.to(device)
 
     if save_models_folder is not None and ResumeEpoch>0:
-        save_file = save_models_folder + "/cDCGAN_checkpoint_intrain/cDCGAN_checkpoint_epoch" + str(ResumeEpoch) + ".pth"
+        save_file = save_models_folder + "/CcDCGAN_checkpoint_intrain/CcDCGAN_checkpoint_epoch" + str(ResumeEpoch) + ".pth"
         checkpoint = torch.load(save_file)
         netG.load_state_dict(checkpoint['netG_state_dict'])
         netD.load_state_dict(checkpoint['netD_state_dict'])
@@ -60,24 +57,16 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
     # z_fixed = torch.randn(n_row**2, dim_GAN, dtype=torch.float).to(device)
     z_fixed = torch.from_numpy(sample_Gaussian(n_row**2, dim_GAN)).type(torch.float).to(device)
 
-    unique_labels = np.array(list(set(train_labels)))
-    unique_labels = np.sort(unique_labels)
-    assert len(unique_labels) >= n_row
+    min_label = np.min(train_labels)
+    max_label = np.max(train_labels)
+    selected_labels = np.linspace(min_label, max_label, num=n_row)
     y_fixed = np.zeros(n_row**2)
     for i in range(n_row):
-        if i == 0:
-            curr_label = np.min(unique_labels)
-        else:
-            if np.max(unique_labels)<=1:
-                if curr_label+0.1 <= 1:
-                    curr_label += 0.1
-            else:
-                curr_label += 10
+        curr_label = selected_labels[i]
         for j in range(n_row):
             y_fixed[i*n_row+j] = curr_label
     print(y_fixed)
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
-
 
 
     start_tmp = timeit.default_timer()
@@ -107,15 +96,19 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
 
             # sample noise as generator's input; generate fake images with length BATCH_SIZE
             # z_2 = torch.randn(BATCH_SIZE, dim_GAN, dtype=torch.float).to(device)
+            # batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2 + batch_epsilons_tensor_1)
+
             z_2 = torch.from_numpy(sample_Gaussian(BATCH_SIZE, dim_GAN)).type(torch.float).to(device)
             batch_fake_images_2 = netG(z_2, batch_train_labels_2 + batch_epsilons_tensor_2)
 
 
+
             # Loss measures generator's ability to fool the discriminator
             dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2)
+            # dis_out = netD(batch_fake_images_2, batch_train_labels_2 + batch_epsilons_tensor_2 + batch_epsilons_tensor_1)
 
             # no weights
-            g_loss = - torch.mean(torch.log(dis_out))
+            g_loss = - torch.mean(torch.log(dis_out+1e-20))
 
             g_loss.backward()
             optimizerG.step()
@@ -144,18 +137,19 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
                 fake_weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
             else:
                 real_weights_x_j = np.zeros(BATCH_SIZE)
-                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) < kappa)[0]
+                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) <= kappa)[0]
                 real_weights_x_j[indx] = 1
 
                 fake_weights_x_j = np.zeros(BATCH_SIZE)
-                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) < kappa)[0]
+                indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) <= kappa)[0]
                 fake_weights_x_j[indx] = 1
 
             real_weights_x_j = torch.from_numpy(real_weights_x_j).type(torch.float).to(device)
             fake_weights_x_j = torch.from_numpy(fake_weights_x_j).type(torch.float).to(device)
 
 
-            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out)) #only add weights to real out
+            d_loss = - torch.mean(real_weights_x_j * torch.log(real_dis_out+1e-20)) - torch.mean(fake_weights_x_j * torch.log(1 - fake_dis_out+1e-20))
+
 
             d_loss.backward()
             optimizerD.step()
@@ -175,13 +169,22 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
                 with torch.no_grad():
                     gen_imgs = netG(z_fixed, y_fixed)
                     gen_imgs = gen_imgs.detach()
+                    # for i in range(n_row): # do not generate all images at once if we use more than one GPUs. It may cause problems.
+                    #     fixed_labels_i = np.ones((n_row, 1)) * selected_labels[i]
+                    #     fixed_labels_i = torch.from_numpy(fixed_labels_i).type(torch.float).to(device)
+                    #     if i == 0:
+                    #         gen_imgs = netG(z_fixed[0:n_row], fixed_labels_i).cpu().numpy()
+                    #     else:
+                    #         imgs_i = netG(z_fixed[(i*n_row):((i+1)*n_row)], fixed_labels_i).cpu().numpy()
+                    #         gen_imgs = np.concatenate((gen_imgs, imgs_i), axis=0)
+                    # gen_imgs = torch.from_numpy(gen_imgs)
                 save_image(gen_imgs.data, save_images_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
 
         if save_models_folder is not None and (epoch+1) % 500 == 0:
-            save_file = save_models_folder + "/cDCGAN_checkpoint_intrain/"
+            save_file = save_models_folder + "/CcDCGAN_checkpoint_intrain/"
             if not os.path.exists(save_file):
                 os.makedirs(save_file)
-            save_file = save_file + "cDCGAN_checkpoint_epoch" + str(epoch+1) + ".pth"
+            save_file = save_file + "CcDCGAN_checkpoint_epoch" + str(epoch+1) + ".pth"
             torch.save({
                     'gen_iterations': gen_iterations,
                     'netG_state_dict': netG.state_dict(),

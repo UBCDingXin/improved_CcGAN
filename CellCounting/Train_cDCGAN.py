@@ -11,17 +11,12 @@ import os
 NC=1
 IMG_SIZE=64
 
-# MIN_LABEL=74
-# MAX_LABEL=317
-
-MIN_LABEL=20
-MAX_LABEL=100
 
 
 ############################################################################################
 # Train DCGAN
 
-def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_cDCGANimages_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda", normalize_count=False, shift_label = 0, max_label = 1):
+def train_cDCGAN(unique_labels, EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_cDCGANimages_folder, save_models_folder = None, ResumeEpoch = 0, device="cuda"):
 
 
     netG = netG.to(device)
@@ -42,19 +37,25 @@ def train_cDCGAN(EPOCHS_GAN, GAN_Latent_Length, trainloader, netG, netD, optimiz
 
     n_row=10
     z_fixed = torch.randn(n_row**2, GAN_Latent_Length, dtype=torch.float).to(device)
-    y_fixed = np.random.randint(MIN_LABEL, MAX_LABEL, n_row**2).astype(np.float)
-    if normalize_count:
-        y_fixed += shift_label
-        y_fixed /= max_label
-        y_fixed = (y_fixed-0.5)/0.5
-    y_fixed = torch.from_numpy(y_fixed).type(torch.float).to(device)
+    unique_labels = np.sort(unique_labels)
+    selected_labels = np.zeros(n_row)
+    indx_step_size = len(unique_labels)//n_row
+    for i in range(n_row):
+        indx = i*indx_step_size
+        selected_labels[i] = unique_labels[indx]
+    y_fixed = np.zeros(n_row**2)
+    for i in range(n_row):
+        curr_label = selected_labels[i]
+        for j in range(n_row):
+            y_fixed[i*n_row+j] = curr_label
+    y_fixed = torch.from_numpy(y_fixed).type(torch.long).to(device)
 
     for epoch in range(ResumeEpoch, EPOCHS_GAN):
         for batch_idx, (batch_train_images, batch_train_counts) in enumerate(trainloader):
 
             BATCH_SIZE = batch_train_images.shape[0]
             batch_train_images = batch_train_images.type(torch.float).to(device)
-            batch_train_counts = batch_train_counts.type(torch.float).to(device)
+            batch_train_counts = batch_train_counts.type(torch.long).to(device)
 
             # Adversarial ground truths
             GAN_real = torch.ones(BATCH_SIZE,1).to(device)

@@ -2,54 +2,103 @@
 
 ## tensorboard --logdir /home/xin/OneDrive/Working_directory/Continuous_cGAN/CellCounting/Output/saved_logs
 
+echo "########################################################################################"
+echo "                         Run script with ONE GPU !!!!                                   "
+echo "########################################################################################"
 
+
+
+SEED=2020
+
+
+echo "########################################################################################"
+echo "                         Pre-train a CNN for evaluation                                 "
+echo "########################################################################################"
+# CUDA_VISIBLE_DEVICES=0 python3 pretrain_CNN.py --CNN ResNet34 --epochs 200 --batch_size_train 256 --batch_size_valid 64 --base_lr 0.01 --seed $SEED --transform --CVMode
+# CUDA_VISIBLE_DEVICES=0 python3 pretrain_CNN.py --CNN ResNet34 --epochs 200 --batch_size_train 256 --batch_size_valid 64 --base_lr 0.01 --seed $SEED --transform
+
+
+# echo "########################################################################################"
+# echo "                                  Baseline GANs                                         "
+# echo "########################################################################################"
 
 # echo "-------------------------------------------------------------------------------------------------"
 # echo "DCGAN"
-# python3 main.py --GAN DCGAN --transform --epoch_gan 1000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0
-
-
-# echo "-------------------------------------------------------------------------------------------------"
-# echo "cDCGAN"
-# python3 main.py --GAN cDCGAN --transform --epoch_gan 1000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 256 --resumeTrain_gan 0
-
-
-# echo "-------------------------------------------------------------------------------------------------"
-# echo "WGANGP"
-# python3 main.py --GAN WGANGP --transform --epoch_gan 2000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0
-
-
-# echo "-------------------------------------------------------------------------------------------------"
-# echo "cWGANGP"
-# python3 main.py --GAN cWGANGP --transform --epoch_gan 1000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0
-
+# CUDA_VISIBLE_DEVICES=0 python3 main.py --GAN DCGAN --transform --epoch_gan 1000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0 --seed $SEED
 
 echo "-------------------------------------------------------------------------------------------------"
-echo "Continuous_cDCGAN"
-
-### HARD
-
-# CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma 0.05 --threshold_type hard --kappa 0.1 --b_int_digits 4 --b_dec_digits 28 --dim_gan 128 --epoch_gan 2000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 128 --resumeTrain_gan 0
-
-# CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN Continuous_cDCGAN --transform --kernel_sigma 2 --threshold_type hard --kappa 4 --b_int_digits 16 --b_dec_digits 0 --dim_gan 128 --epoch_gan 2000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 128 --resumeTrain_gan 0
-
-### Soft
-
-# CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma 0.1 --threshold_type soft --b_int_digits 4 --b_dec_digits 28 --dim_gan 128 --epoch_gan 2000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 128 --resumeTrain_gan 0
-
-# CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN Continuous_cDCGAN --transform --kernel_sigma 0.1 --threshold_type soft --b_int_digits 16 --b_dec_digits 0 --dim_gan 128 --epoch_gan 2000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 128 --resumeTrain_gan 0
+echo "cDCGAN"
+CUDA_VISIBLE_DEVICES=0 python3 main.py --GAN cDCGAN --transform --epoch_gan 1000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 256 --resumeTrain_gan 0 --seed $SEED
 
 
+
+echo "########################################################################################"
+echo "                                 Continuous_cDCGAN                                      "
+echo "########################################################################################"
+EPOCH_GAN=1000
+BATCH_SIZE=256
 
 ### Hard
 
-# python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma 0.1 --threshold_type hard --b_int_digits 4 --b_dec_digits 28 --dim_gan 128 --epoch_gan 10000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 256 --resumeTrain_gan 0
+# for factor in 1.0 2.0 3.0 4.0
+# do
+#   kernel_sigma=0.01
+#   kappa=$(echo "$factor*$kernel_sigma" | bc)
+#
+#   echo "-------------------------------------------------------------------------------------------------"
+#   echo "Continuous_cDCGAN, normalize, HARD, kernel_sigma=$kernel_sigma, kappa=$kappa SEED=$SEED"
+#   CUDA_VISIBLE_DEVICES=0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma $kernel_sigma --threshold_type hard --kappa $kappa --dim_gan 128 --epoch_gan $EPOCH_GAN --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan $BATCH_SIZE --resumeTrain_gan 0 --seed $SEED
+# done
+#
+# for factor in 1.0 2.0 3.0 4.0
+# do
+#   kernel_sigma=0.02
+#   kappa=$(echo "$factor*$kernel_sigma" | bc)
+#
+#   echo "-------------------------------------------------------------------------------------------------"
+#   echo "Continuous_cDCGAN, normalize, HARD, kernel_sigma=$kernel_sigma, kappa=$kappa SEED=$SEED"
+#   CUDA_VISIBLE_DEVICES=0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma $kernel_sigma --threshold_type hard --kappa $kappa --dim_gan 128 --epoch_gan $EPOCH_GAN --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan $BATCH_SIZE --resumeTrain_gan 0 --seed $SEED
+# done
 
-# python3 main.py --GAN Continuous_cDCGAN --transform --kernel_sigma 2 --threshold_type hard --kappa 4 --b_int_digits 10 --b_dec_digits 0 --dim_gan 128 --epoch_gan 5000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 128 --resumeTrain_gan 0
+
+### Soft
+
+# for factor in 1.0 2.0 3.0 4.0
+# do
+#   kernel_sigma=0.01
+#   kappa=$(echo "$factor*$kernel_sigma" | bc)
+#
+#   echo "-------------------------------------------------------------------------------------------------"
+#   echo "Continuous_cDCGAN, normalize, Soft, kernel_sigma=$kernel_sigma, kappa=$kappa SEED=$SEED"
+#   CUDA_VISIBLE_DEVICES=0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma $kernel_sigma --threshold_type soft --kappa $kappa --dim_gan 128 --epoch_gan $EPOCH_GAN --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan $BATCH_SIZE --resumeTrain_gan 0 --seed $SEED
+# done
+#
+# for factor in 1.0 2.0 3.0 4.0
+# do
+#   kernel_sigma=0.02
+#   kappa=$(echo "$factor*$kernel_sigma" | bc)
+#
+#   echo "-------------------------------------------------------------------------------------------------"
+#   echo "Continuous_cDCGAN, normalize, Soft, kernel_sigma=$kernel_sigma, kappa=$kappa SEED=$SEED"
+#   CUDA_VISIBLE_DEVICES=0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma $kernel_sigma --threshold_type soft --kappa $kappa --dim_gan 128 --epoch_gan $EPOCH_GAN --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan $BATCH_SIZE --resumeTrain_gan 0 --seed $SEED
+# done
 
 
-### soft
 
-# python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma 0.1 --threshold_type soft --b_int_digits 4 --b_dec_digits 28 --dim_gan 128 --epoch_gan 10000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 128 --resumeTrain_gan 0
 
-python3 main.py --GAN Continuous_cDCGAN --transform --kernel_sigma 2 --threshold_type soft --b_int_digits 16 --b_dec_digits 0 --dim_gan 128 --epoch_gan 500 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 128 --resumeTrain_gan 0
+
+
+
+
+
+
+
+
+# ###############################
+# ## VGG dataset
+# kernel_sigma=0.05
+# kappa=0.1
+# BATCH_SIZE=64
+# echo "-------------------------------------------------------------------------------------------------"
+# echo "Continuous_cDCGAN, normalize, HARD, kernel_sigma=$kernel_sigma, kappa=$kappa SEED=$SEED"
+# CUDA_VISIBLE_DEVICES=0 python3 main.py --Dataset VGG --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma $kernel_sigma --threshold_type hard --kappa $kappa --dim_gan 128 --epoch_gan $EPOCH_GAN --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan $BATCH_SIZE --resumeTrain_gan 0 --seed $SEED
