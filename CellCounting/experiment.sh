@@ -26,9 +26,9 @@ echo "##########################################################################
 # echo "DCGAN"
 # CUDA_VISIBLE_DEVICES=0 python3 main.py --GAN DCGAN --transform --epoch_gan 1000 --lr_g_gan 1e-4 --lr_d_gan 1e-4 --batch_size_gan 64 --resumeTrain_gan 0 --seed $SEED
 
-echo "-------------------------------------------------------------------------------------------------"
-echo "cDCGAN"
-CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN cDCGAN --transform --epoch_gan 1000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 256 --resumeTrain_gan 0 --seed $SEED
+# echo "-------------------------------------------------------------------------------------------------"
+# echo "cDCGAN"
+# CUDA_VISIBLE_DEVICES=1 python3 main.py --GAN cDCGAN --transform --epoch_gan 1000 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 256 --resumeTrain_gan 0 --seed $SEED
 
 
 
@@ -85,7 +85,7 @@ BATCH_SIZE=256
 
 
 
-
+CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN Continuous_cDCGAN --normalize_count --transform --kernel_sigma 0.01 --threshold_type hard --kappa 0.05 --dim_gan 128 --epoch_gan 500 --lr_g_gan 2e-4 --lr_d_gan 1e-4 --batch_size_gan 128 --resumeTrain_gan 0 --seed $SEED
 
 
 
@@ -105,6 +105,6 @@ BATCH_SIZE=256
 
 
 
-## reset fan speed
-nvidia-settings -a "[gpu:0]/GPUFanControlState=0"
-nvidia-settings -a "[gpu:1]/GPUFanControlState=0"
+# ## reset fan speed
+# nvidia-settings -a "[gpu:0]/GPUFanControlState=0"
+# nvidia-settings -a "[gpu:1]/GPUFanControlState=0"

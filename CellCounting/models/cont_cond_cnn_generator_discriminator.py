@@ -50,14 +50,15 @@ class cont_cond_cnn_generator(nn.Module):
             # state size. (nc) x 64 x 64
         )
 
+
     def forward(self, z, y):
         z = z.view(-1, self.nz)
         ### add label to the output of the first conv
-        y = y.view(-1, 1).repeat(1,self.ngf*8*8*8).view(-1, self.ngf*8, 8, 8)*label_factor
+        y_rep = y.view(-1, 1).repeat(1,self.ngf*8*8*8).view(-1, self.ngf*8, 8, 8)*label_factor
         output = self.linear(z)
         output_img = output.view(-1, 8*self.ngf, 4, 4)
         output_img = self.conv1(output_img)
-        output_img = output_img + y
+        output_img = output_img + y_rep
         output_img = self.conv2(output_img)
 
         return output_img
@@ -97,11 +98,12 @@ class cont_cond_cnn_discriminator(nn.Module):
             linear += [nn.Sigmoid()]
         self.linear = nn.Sequential(*linear)
 
-    def forward(self, x, y):
-        y = y.view(-1, 1).repeat(1,self.ndf*8*4*4).view(-1, self.ndf*8, 4, 4)*label_factor
 
-        output = self.main(x) + y
-        output = output.view(-1, self.ndf*8*4*4)
+    def forward(self, x, y):
+        y_rep = y.view(-1, 1).repeat(1,self.ndf*8*4*4).view(-1, self.ndf*8, 4, 4)*label_factor
+
+        output = self.main(x) + y_rep
+        output = output.view(-1, self.ndf*8*4*4) 
         output = self.linear(output)
 
         return output.view(-1, 1)

@@ -53,18 +53,18 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
         gen_iterations = 0
     #end if
 
-    n_row=8
-    # z_fixed = torch.randn(n_row**2, dim_GAN, dtype=torch.float).to(device)
-    z_fixed = torch.from_numpy(sample_Gaussian(n_row**2, dim_GAN)).type(torch.float).to(device)
+    n_row=8; n_col = 8
+    # z_fixed = torch.randn(n_row*n_col, dim_GAN, dtype=torch.float).to(device)
+    z_fixed = torch.from_numpy(sample_Gaussian(n_row*n_col, dim_GAN)).type(torch.float).to(device)
 
     min_label = np.min(train_labels)
     max_label = np.max(train_labels)
     selected_labels = np.linspace(min_label, max_label, num=n_row)
-    y_fixed = np.zeros(n_row**2)
+    y_fixed = np.zeros(n_row*n_col)
     for i in range(n_row):
         curr_label = selected_labels[i]
-        for j in range(n_row):
-            y_fixed[i*n_row+j] = curr_label
+        for j in range(n_col):
+            y_fixed[i*n_col+j] = curr_label
     print(y_fixed)
     y_fixed = torch.from_numpy(y_fixed).type(torch.float).view(-1,1).to(device)
 
@@ -92,6 +92,7 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
             Train Generator: maximize log(D(G(z)))
 
             '''
+            netG.train()
             optimizerG.zero_grad()
 
             # sample noise as generator's input; generate fake images with length BATCH_SIZE
@@ -166,19 +167,13 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
                 print ("CcDCGAN: [Iter %d] [Epoch %d/%d] [D loss: %.4e] [G loss: %.4e] [real prob: %.3f] [fake prob: %.3f] [Time: %.4f]" % (gen_iterations, epoch + 1, epoch_GAN, d_loss.item(), g_loss.item(), real_dis_out.mean().item(), fake_dis_out.mean().item(), timeit.default_timer()-start_tmp))
 
             if gen_iterations % 100 == 0:
+                netG.eval()
                 with torch.no_grad():
                     gen_imgs = netG(z_fixed, y_fixed)
-                    gen_imgs = gen_imgs.detach()
-                    # for i in range(n_row): # do not generate all images at once if we use more than one GPUs. It may cause problems.
-                    #     fixed_labels_i = np.ones((n_row, 1)) * selected_labels[i]
-                    #     fixed_labels_i = torch.from_numpy(fixed_labels_i).type(torch.float).to(device)
-                    #     if i == 0:
-                    #         gen_imgs = netG(z_fixed[0:n_row], fixed_labels_i).cpu().numpy()
-                    #     else:
-                    #         imgs_i = netG(z_fixed[(i*n_row):((i+1)*n_row)], fixed_labels_i).cpu().numpy()
-                    #         gen_imgs = np.concatenate((gen_imgs, imgs_i), axis=0)
-                    # gen_imgs = torch.from_numpy(gen_imgs)
-                save_image(gen_imgs.data, save_images_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
+                    gen_imgs = gen_imgs.detach().cpu()
+                    save_image(gen_imgs.data, save_images_folder +'%d.png' % gen_iterations, nrow=n_row, normalize=True)
+
+
 
         if save_models_folder is not None and (epoch+1) % 500 == 0:
             save_file = save_models_folder + "/CcDCGAN_checkpoint_intrain/"
