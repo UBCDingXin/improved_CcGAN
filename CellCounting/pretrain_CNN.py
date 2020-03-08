@@ -54,6 +54,8 @@ parser.add_argument('--transform', action='store_true', default=False,
                     help='crop images for CNN training')
 parser.add_argument('--CVMode', action='store_true', default=False,
                     help='CV mode?')
+parser.add_argument('--img_size', type=int, default=64, metavar='N',
+                    choices=[64,128])
 args = parser.parse_args()
 
 
@@ -157,7 +159,7 @@ if args.CVMode:
 # Training and Testing
 ###########################################################################################################
 # data loader
-h5py_file = wd+'/data/cell_dataset_resize_64x64.h5'
+h5py_file = wd+'/data/Cell300_' + str(args.img_size) + 'x' + str(args.img_size) + '.h5'
 hf = h5py.File(h5py_file, 'r')
 counts = hf['CellCounts'][:]
 counts = counts.astype(np.float)

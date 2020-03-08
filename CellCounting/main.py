@@ -37,11 +37,15 @@ from Train_Continuous_cDCGAN import *
 #######################################################################################
 parser = argparse.ArgumentParser(description='Density-ratio based sampling for GANs')
 
-parser.add_argument('--Dataset', type=str, default='C300',
-                    choices=['VGG','C300'])
-parser.add_argument('--num_imgs_per_count', type=int, default=20, metavar='N',
+parser.add_argument('--Dataset', type=str, default='Cell300',
+                    choices=['VGG','Cell300'])
+parser.add_argument('--num_imgs_per_count', type=int, default=10, metavar='N',
                     help='number of images for each cell count')
-
+parser.add_argument('--img_size', type=int, default=64, metavar='N',
+                    choices=[64,128])
+parser.add_argument('--start_count', type=int, default=0, metavar='N')
+parser.add_argument('--end_count', type=int, default=300, metavar='N')
+parser.add_argument('--stepsize_count', type=int, default=4, metavar='N')
 
 parser.add_argument('--GAN', type=str, default='Continuous_cDCGAN',
                     choices=['DCGAN', 'cDCGAN', 'Continuous_cDCGAN'])
@@ -135,14 +139,14 @@ os.makedirs(save_traincurves_folder, exist_ok=True)
 # data loader
 
 if args.Dataset=='VGG':
-    h5py_file = wd+'/data/VGG_dataset_64x64.h5'
+    h5py_file = wd+'/data/VGG_dataset_+64x64.h5'
     hf = h5py.File(h5py_file, 'r')
     counts = hf['CellCounts'][:]
     counts = counts.astype(np.float)
     images = hf['IMGs_grey'][:]
     hf.close()
-elif args.Dataset=='C300':
-    h5py_file = wd+'/data/cell_dataset_resize_64x64.h5'
+elif args.Dataset=='Cell300':
+    h5py_file = wd+'/data/Cell300_' + str(args.img_size) + 'x' + str(args.img_size) + '.h5'
     hf = h5py.File(h5py_file, 'r')
     counts = hf['CellCounts'][:]
     counts = counts.astype(np.float)
@@ -153,7 +157,7 @@ elif args.Dataset=='C300':
     n_imgs_per_cellcount = args.num_imgs_per_count
     # unique_cellcounts = list(set(counts))
     # n_unique_cellcount = len(unique_cellcounts)
-    selected_cellcounts = np.arange(5, 110, 2)
+    selected_cellcounts = np.arange(args.start_count, args.end_count+1, args.stepsize_count)
     n_unique_cellcount = len(selected_cellcounts)
 
 

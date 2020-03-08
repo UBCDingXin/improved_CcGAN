@@ -66,6 +66,7 @@ def train_cDCGAN(unique_labels, EPOCHS_GAN, GAN_Latent_Length, trainloader, netG
             Train Generator: maximize log(D(G(z)))
 
             '''
+            netG.train()
             optimizerG.zero_grad()
             # Sample noise and labels as generator input
             z = torch.randn(BATCH_SIZE, GAN_Latent_Length, dtype=torch.float).to(device)
@@ -106,6 +107,7 @@ def train_cDCGAN(unique_labels, EPOCHS_GAN, GAN_Latent_Length, trainloader, netG
                 print ("cDCGAN: [Iter %d] [Epoch %d/%d] [D loss: %.4f] [G loss: %.4f] [D prob real:%.4f] [D prob fake:%.4f]" % (gen_iterations, epoch + 1, EPOCHS_GAN, d_loss.item(), g_loss.item(), prob_real.mean().item(),prob_fake.mean().item()))
 
             if gen_iterations % 100 == 0:
+                netG.eval()
                 with torch.no_grad():
                     gen_imgs = netG(z_fixed, y_fixed)
                     gen_imgs = gen_imgs.detach()
