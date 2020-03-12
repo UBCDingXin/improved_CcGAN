@@ -36,7 +36,9 @@ from utils import IMGs_dataset
 #############################
 
 parser = argparse.ArgumentParser(description='Pre-train CNNs')
-parser.add_argument('--CNN', type=str, default='ResNet34',
+parser.add_argument('--start_count', type=int, default=0, metavar='N')
+parser.add_argument('--end_count', type=int, default=300, metavar='N')
+parser.add_argument('--CNN', type=str, default='ResNet34_class',
                     help='CNN for training; ResNetXX')
 parser.add_argument('--epochs', type=int, default=200, metavar='N',
                     help='number of epochs to train CNNs (default: 200)')
@@ -81,11 +83,15 @@ os.makedirs(save_logs_folder, exist_ok=True)
 ###########################################################################################################
 
 #initialize CNNs
-def net_initialization(Pretrained_CNN_Name, ngpu = 1):
-    if Pretrained_CNN_Name == "ResNet18":
-        net = ResNet18(ngpu = ngpu, is_label_positive=True)
-    elif Pretrained_CNN_Name == "ResNet34":
-        net = ResNet34(ngpu = ngpu, is_label_positive=True)
+def net_initialization(Pretrained_CNN_Name, ngpu = 1, num_classes=args.end_count):
+    if Pretrained_CNN_Name == "ResNet18_class":
+        net = ResNet18_class(num_classes=num_classes, ngpu = ngpu)
+    elif Pretrained_CNN_Name == "ResNet34_class":
+        net = ResNet34_class(num_classes=num_classes, ngpu = ngpu)
+    elif Pretrained_CNN_Name == "ResNet50_class":
+        net = ResNet50_class(num_classes=num_classes, ngpu = ngpu)
+    elif Pretrained_CNN_Name == "ResNet101_class":
+        net = ResNet101_class(num_classes=num_classes, ngpu = ngpu)
 
     net_name = 'PreCNNForEvalGANs_' + Pretrained_CNN_Name #get the net's name
     net = net.to(device)
@@ -94,14 +100,14 @@ def net_initialization(Pretrained_CNN_Name, ngpu = 1):
 
 #adjust CNN learning rate
 def adjust_learning_rate(optimizer, epoch, BASE_LR_CNN):
-    """decrease the learning rate at 100 and 150 epoch"""
     lr = BASE_LR_CNN
-    if epoch <= 9 and lr > 0.1:
-        # warm-up training for large minibatch
-        lr = 0.1 + (BASE_LR_CNN - 0.1) * epoch / 10.
-    if epoch >= 100:
+    # if epoch >= 35:
+    #     lr /= 10
+    # if epoch >= 70:
+    #     lr /= 10
+    if epoch >= 50:
         lr /= 10
-    if epoch >= 150:
+    if epoch >= 120:
         lr /= 10
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
@@ -118,7 +124,7 @@ def train_CNN():
             # batch_train_images = nn.functional.interpolate(batch_train_images, size = (299,299), scale_factor=None, mode='bilinear', align_corners=False)
 
             batch_train_images = batch_train_images.type(torch.float).cuda()
-            batch_train_labels = batch_train_labels.type(torch.float).view(-1,1).cuda()
+            batch_train_labels = batch_train_labels.type(torch.long).cuda()
 
             #Forward pass
             outputs,_ = net(batch_train_images)
@@ -131,29 +137,37 @@ def train_CNN():
 
             train_loss += loss.cpu().item()
         #end for batch_idx
+        train_loss = train_loss / len(trainloader)
 
-        print('CNN: [epoch %d/%d] train_loss:%.3f' % (epoch+1, args.epochs, train_loss/(batch_idx+1)))
+        if args.CVMode:
+            valid_acc = valid_CNN(verbose=False)
+            print('CNN: [epoch %d/%d] train_loss:%f valid_acc:%f' % (epoch+1, args.epochs, train_loss, valid_acc))
+        else:
+            print('CNN: [epoch %d/%d] train_loss:%f' % (epoch+1, args.epochs, train_loss))
+
     #end for epoch
 
     return net, optimizer
 
-
 if args.CVMode:
     def valid_CNN(verbose=True):
-
         net.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
         with torch.no_grad():
-            abs_diff_avg = 0
+            correct = 0
             total = 0
             for batch_idx, (images, labels) in enumerate(validloader):
                 images = images.type(torch.float).cuda()
-                labels = labels.type(torch.float).view(-1,1).cuda()
+                labels = labels.type(torch.long).cuda()
                 outputs,_ = net(images)
-                abs_diff_avg += np.sum(np.abs(labels.view(-1).cpu().numpy()-outputs.view(-1).cpu().numpy()))
+                _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
+                correct += (predicted == labels).sum().item()
             if verbose:
-                print('Validation Average Absolution Difference: {}'.format(abs_diff_avg / total))
-        return loss_avg / total
+                print('Valid Accuracy of the model on the validation set: {} %'.format(100.0 * correct / total))
+        return 100.0 * correct / total
+
+
+
 
 ###########################################################################################################
 # Training and Testing
@@ -165,13 +179,49 @@ counts = hf['CellCounts'][:]
 counts = counts.astype(np.float)
 images = hf['IMGs_grey'][:]
 hf.close()
+
+selected_cellcounts = np.arange(args.start_count, args.end_count+1)
+n_unique_cellcount = len(selected_cellcounts)
+images_subset = np.zeros((n_unique_cellcount*1000, 1, IMG_SIZE, IMG_SIZE), dtype=np.uint8)
+counts_subset = np.zeros(n_unique_cellcount*1000)
+for i in range(n_unique_cellcount):
+    curr_cellcount = selected_cellcounts[i]
+    index_curr_cellcount = np.where(counts==curr_cellcount)[0]
+
+    if i == 0:
+        images_subset = images[index_curr_cellcount]
+        counts_subset = counts[index_curr_cellcount]
+    else:
+        images_subset = np.concatenate((images_subset, images[index_curr_cellcount]), axis=0)
+        counts_subset = np.concatenate((counts_subset, counts[index_curr_cellcount]))
+# for i
+images = images_subset
+counts = counts_subset
+del images_subset, counts_subset; gc.collect()
+# counts = counts/args.end_count #in classification mode, we don't need to normalize labels
+
+
+## convert cell count to class labels
+count2class = dict() #convert count to class label
+class2count = dict() #convert class label to count
+for i in range(n_unique_cellcount):
+    count2class[selected_cellcounts[i]]=i
+    class2count[i] = selected_cellcounts[i]
+counts_new = -1*np.ones(len(counts))
+for i in range(len(counts)):
+    counts_new[i] = count2class[counts[i]]
+assert np.sum(counts_new<0)==0
+counts = counts_new
+del counts_new; gc.collect()
+
+# compute number of samples
 N = len(images)
 N_train = int(0.8*N)
 N_valid = N - N_train
 assert len(images) == len(counts)
 
-# noralization is very important here!!!!!!!!!
-counts = counts/np.max(counts)
+print("Number of images: {} ({}/{})".format(N, N_train, N_valid))
+
 
 if args.CVMode: # divide dataset into a training set 80% and a validation set 20%
     indx_all = np.arange(N)
@@ -189,9 +239,6 @@ else:
     counts_train = counts
 del images, counts; gc.collect()
 
-print('Number of training images: {}'.format(len(images_train)))
-
-
 
 if args.transform:
     trainset = IMGs_dataset(images_train, counts_train, normalize=True, rotate=True, degrees = [90,180,270], hflip = True, vflip = True)
@@ -205,11 +252,14 @@ if args.CVMode:
 
 
 # model initialization
-net, net_name = net_initialization(args.CNN, ngpu = ngpu)
-criterion = nn.MSELoss()
+net, net_name = net_initialization(args.CNN, ngpu = ngpu, num_classes = n_unique_cellcount)
+criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(net.parameters(), lr = args.base_lr, momentum= 0.9, weight_decay=args.weight_dacay)
 
-filename_ckpt = save_models_folder + '/ckpt_' + net_name + '_epoch_' + str(args.epochs) +  '_SEED_' + str(args.seed) + '_Transformation_' + str(args.transform) + '_CVMode_' + str(args.CVMode)
+if args.CVMode:
+    filename_ckpt = save_models_folder + '/ckpt_' + net_name + '_epoch_' + str(args.epochs) +  '_SEED_' + str(args.seed) + '_Transformation_' + str(args.transform) + '_CVMode_' + str(args.CVMode) + '_Cell_' + str(args.end_count)
+else:
+    filename_ckpt = save_models_folder + '/ckpt_' + net_name + '_epoch_' + str(args.epochs) +  '_SEED_' + str(args.seed) + '_Transformation_' + str(args.transform) + '_Cell_' + str(args.end_count)
 
 # training
 if not os.path.isfile(filename_ckpt):

@@ -77,9 +77,9 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
+class ResNet_regre(nn.Module):
     def __init__(self, block, num_blocks, nc=NC, ngpu = 1, is_label_positive=True):
-        super(ResNet, self).__init__()
+        super(ResNet_regre, self).__init__()
         self.in_planes = 64
         self.ngpu = ngpu
 
@@ -89,10 +89,10 @@ class ResNet(nn.Module):
             nn.BatchNorm2d(64),
             nn.ReLU(),
             # self._make_layer(block, 64, num_blocks[0], stride=1),  # h=h
-            self._make_layer(block, 64, num_blocks[0], stride=2),  # h=h/2
-            self._make_layer(block, 128, num_blocks[1], stride=2), # h=h/2
-            self._make_layer(block, 256, num_blocks[2], stride=2), # h=h/2
-            self._make_layer(block, 512, num_blocks[3], stride=2), # h=h/2
+            self._make_layer(block, 64, num_blocks[0], stride=2),  # h=h/2 32
+            self._make_layer(block, 128, num_blocks[1], stride=2), # h=h/2 16
+            self._make_layer(block, 256, num_blocks[2], stride=2), # h=h/2 8
+            self._make_layer(block, 512, num_blocks[3], stride=2), # h=h/2 4
             nn.AvgPool2d(kernel_size=4)
         )
 
@@ -133,24 +133,24 @@ class ResNet(nn.Module):
         return out, features
 
 
-def ResNet18(ngpu = 1, is_label_positive=True):
-    return ResNet(BasicBlock, [2,2,2,2], ngpu = ngpu, is_label_positive=is_label_positive)
+def ResNet18_regre(ngpu = 1, is_label_positive=True):
+    return ResNet_regre(BasicBlock, [2,2,2,2], ngpu = ngpu, is_label_positive=is_label_positive)
 
-def ResNet34(ngpu = 1, is_label_positive=True):
-    return ResNet(BasicBlock, [3,4,6,3], ngpu = ngpu, is_label_positive=is_label_positive)
+def ResNet34_regre(ngpu = 1, is_label_positive=True):
+    return ResNet_regre(BasicBlock, [3,4,6,3], ngpu = ngpu, is_label_positive=is_label_positive)
 
-def ResNet50(ngpu = 1, is_label_positive=True):
-    return ResNet(Bottleneck, [3,4,6,3], ngpu = ngpu, is_label_positive=is_label_positive)
+def ResNet50_regre(ngpu = 1, is_label_positive=True):
+    return ResNet_regre(Bottleneck, [3,4,6,3], ngpu = ngpu, is_label_positive=is_label_positive)
 
-def ResNet101(ngpu = 1, is_label_positive=True):
-    return ResNet(Bottleneck, [3,4,23,3], ngpu = ngpu, is_label_positive=is_label_positive)
+def ResNet101_regre(ngpu = 1, is_label_positive=True):
+    return ResNet_regre(Bottleneck, [3,4,23,3], ngpu = ngpu, is_label_positive=is_label_positive)
 
-def ResNet152(ngpu = 1, is_label_positive=True):
-    return ResNet(Bottleneck, [3,8,36,3], ngpu = ngpu, is_label_positive=is_label_positive)
+def ResNet152_regre(ngpu = 1, is_label_positive=True):
+    return ResNet_regre(Bottleneck, [3,8,36,3], ngpu = ngpu, is_label_positive=is_label_positive)
 
 
 if __name__ == "__main__":
-    net = ResNet34(ngpu = 1).cuda()
+    net = ResNet34_regre(ngpu = 1).cuda()
     x = torch.randn(16,NC,IMG_SIZE,IMG_SIZE).cuda()
     out, features = net(x)
     print(out.size())

@@ -359,13 +359,13 @@ print("GAN training finished; Time elapses: {}s".format(stop - start))
 #######################################################################################
 if args.comp_FID or args.comp_LS:
     if args.comp_FID:
-        PreNetFID = ResNet34_class(num_classes=args.end_count, ngpu = NGPU).to(device)
-        Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_class_epoch_200_SEED_2020_Transformation_True_Cell_200'
+        PreNetFID = ResNet50(ngpu = NGPU, is_label_positive=True).to(device)
+        Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet50_epoch_100_SEED_2020_Transformation_True_Cell_200'
         checkpoint_PreNet = torch.load(Filename_PreCNNForEvalGANs)
         PreNetFID.load_state_dict(checkpoint_PreNet['net_state_dict'])
     if args.comp_LS:
-        PreNetLS = ResNet34_regre(ngpu = NGPU, is_label_positive=True).to(device)
-        Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_regre_epoch_200_SEED_2020_Transformation_True_Cell_200'
+        PreNetLS = ResNet50(ngpu = NGPU, is_label_positive=True).to(device)
+        Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet50_epoch_100_SEED_2020_Transformation_True_Cell_200'
         checkpoint_PreNet = torch.load(Filename_PreCNNForEvalGANs)
         PreNetLS.load_state_dict(checkpoint_PreNet['net_state_dict'])
 
