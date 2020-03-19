@@ -43,10 +43,12 @@ parser.add_argument('--num_imgs_per_count', type=int, default=10, metavar='N',
                     help='number of images for each cell count')
 parser.add_argument('--img_size', type=int, default=64, metavar='N',
                     choices=[64,128])
-parser.add_argument('--start_count', type=int, default=0, metavar='N')
-parser.add_argument('--end_count', type=int, default=300, metavar='N')
+parser.add_argument('--start_count', type=int, default=1, metavar='N')
+parser.add_argument('--end_count', type=int, default=200, metavar='N')
 parser.add_argument('--stepsize_count', type=int, default=2, metavar='N')
-parser.add_argument('--show_real_imgs', action='store_true', default=False)
+parser.add_argument('--show_real_imgs', action='store_true', default=False) #output a grid of real images for all 300 unique cell counts
+parser.add_argument('--visualize_fake_images', action='store_true', default=False)
+
 
 parser.add_argument('--GAN', type=str, default='Continuous_cDCGAN',
                     choices=['DCGAN', 'cDCGAN', 'Continuous_cDCGAN'])
@@ -58,17 +60,18 @@ parser.add_argument('--transform', action='store_true', default=False,
 #                     help='normalize cell counts')
 
 
-parser.add_argument('--kernel_sigma', type=float, default=0.1)
-parser.add_argument('--threshold_type', type=str, default='soft',
+parser.add_argument('--kernel_sigma', type=float, default=-1.0,
+                    help='If kernel_sigma<0, then use rule-of-thumb formula to compute the sigma.')
+parser.add_argument('--threshold_type', type=str, default='hard',
                     choices=['soft', 'hard'])
-parser.add_argument('--kappa', type=float, default=1)
+parser.add_argument('--kappa', type=float, default=-1)
 parser.add_argument('--b_int_digits', type=int, default=16,
                     help='How many digits used to represent the integer part of a label')
 parser.add_argument('--b_dec_digits', type=int, default=16,
                     help='How many digits used to represent the decimal part of a label')
 
 
-parser.add_argument('--epoch_gan', type=int, default=500)
+parser.add_argument('--epoch_gan', type=int, default=2000)
 parser.add_argument('--lr_g_gan', type=float, default=1e-4,
                     help='learning rate for generator')
 parser.add_argument('--lr_d_gan', type=float, default=2e-4,
@@ -87,8 +90,6 @@ parser.add_argument('--comp_LS', action='store_true', default=False)
 # parser.add_argument('--num_eval_labels', type=int, default=200)
 
 args = parser.parse_args()
-
-print("{}, Sigma is {}, Kappa is {}".format(args.threshold_type, args.kernel_sigma, args.kappa))
 
 
 #-----------------------------
@@ -126,11 +127,6 @@ save_models_folder = wd + '/Output/saved_models'
 os.makedirs(save_models_folder, exist_ok=True)
 save_images_folder = wd + '/Output/saved_images'
 os.makedirs(save_images_folder, exist_ok=True)
-if args.GAN in ['Continuous_cDCGAN']:
-    save_GANimages_InTrain_folder = wd + '/Output/saved_images/' + args.GAN + '_' + args.threshold_type + '_' + str(args.kernel_sigma) + '_' + str(args.kappa) + '_InTrain/'
-else:
-    save_GANimages_InTrain_folder = wd + '/Output/saved_images/' + args.GAN + '_InTrain/'
-os.makedirs(save_GANimages_InTrain_folder, exist_ok=True)
 save_traincurves_folder = wd + '/Output/Training_loss_fig'
 os.makedirs(save_traincurves_folder, exist_ok=True)
 
@@ -140,12 +136,16 @@ os.makedirs(save_traincurves_folder, exist_ok=True)
 '''                                    Data loader                                 '''
 #######################################################################################
 # data loader
-h5py_file = wd+'/data/Cell300_' + str(args.img_size) + 'x' + str(args.img_size) + '.h5'
-hf = h5py.File(h5py_file, 'r')
+data_filename = wd+'/data/Cell300_' + str(args.img_size) + 'x' + str(args.img_size) + '.h5'
+hf = h5py.File(data_filename, 'r')
 counts = hf['CellCounts'][:]
 counts = counts.astype(np.float)
 images = hf['IMGs_grey'][:]
 hf.close()
+
+if args.visualize_fake_images or args.comp_FID or args.comp_LS:
+    raw_images = images #backup images;
+    raw_counts = counts #backup cell counts; we may normalize counts later
 
 ### show some real  images
 if args.show_real_imgs:
@@ -154,19 +154,16 @@ if args.show_real_imgs:
     images_show = np.zeros((nrow*ncol, images.shape[1], images.shape[2], images.shape[3]))
     for i in range(nrow):
         curr_label = unique_counts_show[i]
-        indx_curr_label = np.where(counts==curr_label)[0:ncol]
-        images_show[i,:,:,:] = images[indx_curr_label]
+        indx_curr_label = np.where(counts==curr_label)[0][0:ncol]
+        for j in range(ncol):
+            images_show[i*ncol+j,:,:,:] = images[indx_curr_label[j]]
     print(images_show.shape)
     images_show = (images_show/255.0-0.5)/0.5
     images_show = torch.from_numpy(images_show)
-    save_image(images_show.data, save_images_folder +'/real_images.png', nrow=n_row, normalize=True)
+    save_image(images_show.data, save_images_folder +'/real_images_grid_{}x{}.png'.format(nrow, ncol), nrow=ncol, normalize=True)
     sys.exist()
 
 
-
-#############
-# images for evaluation
-images_eval = images
 
 #############3
 # images for training GAN
@@ -177,7 +174,7 @@ n_imgs_per_cellcount = args.num_imgs_per_count
 selected_cellcounts = np.arange(args.start_count, args.end_count+1, args.stepsize_count)
 n_unique_cellcount = len(selected_cellcounts)
 
-images_subset = np.zeros((n_imgs_per_cellcount*n_unique_cellcount, 1, IMG_SIZE, IMG_SIZE), dtype=np.uint8)
+images_subset = np.zeros((n_imgs_per_cellcount*n_unique_cellcount, NC, IMG_SIZE, IMG_SIZE), dtype=np.uint8)
 counts_subset = np.zeros(n_imgs_per_cellcount*n_unique_cellcount)
 for i in range(n_unique_cellcount):
     curr_cellcount = selected_cellcounts[i]
@@ -212,9 +209,21 @@ if args.GAN == "cDCGAN": #treated as classification; convert cell counts to clas
     unique_labels = np.sort(np.array(list(set(counts)))).astype(np.int)
 else:
     counts /= args.end_count # normalize to [0,1]
+    if args.kernel_sigma<0:
+        std_count = np.std(counts)
+        args.kernel_sigma =1.06*std_count*(len(counts))**(-1/5)
+        print("\n Use rule-of-thumb formula to compute kernel_sigma >>>")
+        print("\n The std of {} cell counts is {} so the kernel sigma is {}".format(len(counts), std_count, args.kernel_sigma))
 
+        # args.kernel_sigma = 1/n_unique_cellcount
 
-
+    if args.kappa<0:
+        if args.threshold_type=="hard":
+            # args.kappa = args.kernel_sigma
+            args.kappa = 2/n_unique_cellcount
+        else:
+            # args.kappa = 1/(2*(2/n_unique_cellcount)**2)
+            args.kappa = 1/((2/n_unique_cellcount)**2)
 
 
 if args.transform:
@@ -225,13 +234,17 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size_g
 
 
 
-
-
-
 #######################################################################################
 '''                                    GAN training                                 '''
 #######################################################################################
-# Filename_GAN = save_models_folder + '/ckpt_' + args.GAN + '_epoch_' + str(args.epoch_gan) + '_SEED_' + str(args.seed) + '_' + args.threshold_type + '_' + str(args.kernel_sigma) + '_' + str(args.kappa)
+
+print("{}, Sigma is {}, Kappa is {}".format(args.threshold_type, args.kernel_sigma, args.kappa))
+
+if args.GAN in ['Continuous_cDCGAN']:
+    save_GANimages_InTrain_folder = wd + '/Output/saved_images/' + args.GAN + '_' + args.threshold_type + '_' + str(args.kernel_sigma) + '_' + str(args.kappa) + '_InTrain/'
+else:
+    save_GANimages_InTrain_folder = wd + '/Output/saved_images/' + args.GAN + '_InTrain/'
+os.makedirs(save_GANimages_InTrain_folder, exist_ok=True)
 
 start = timeit.default_timer()
 print("\n Begin Training %s:" % args.GAN)
@@ -359,8 +372,10 @@ print("GAN training finished; Time elapses: {}s".format(stop - start))
 #######################################################################################
 if args.comp_FID or args.comp_LS:
     if args.comp_FID:
-        PreNetFID = ResNet34_class(num_classes=args.end_count, ngpu = NGPU).to(device)
-        Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_class_epoch_200_SEED_2020_Transformation_True_Cell_200'
+        # PreNetFID = ResNet34_class(num_classes=args.end_count, ngpu = NGPU).to(device)
+        # Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_class_epoch_200_SEED_2020_Transformation_True_Cell_200'
+        PreNetFID = ResNet34_regre(ngpu = NGPU, is_label_positive=True).to(device)
+        Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_regre_epoch_200_SEED_2020_Transformation_True_Cell_200'
         checkpoint_PreNet = torch.load(Filename_PreCNNForEvalGANs)
         PreNetFID.load_state_dict(checkpoint_PreNet['net_state_dict'])
     if args.comp_LS:
@@ -373,8 +388,7 @@ if args.comp_FID or args.comp_LS:
         fake_images = fn_sampleGAN(args.nfake, args.samp_batch_size)
         if args.comp_FID:
             # FID
-            real_images_norm = (images_eval/255.0-0.5)/0.5
-            del images_eval; gc.collect()
+            real_images_norm = (raw_images/255.0-0.5)/0.5
             indx_shuffle_real = np.arange(len(real_images_norm)); np.random.shuffle(indx_shuffle_real)
             indx_shuffle_fake = np.arange(args.nfake); np.random.shuffle(indx_shuffle_fake)
             FID = cal_FID(PreNetFID, real_images_norm[indx_shuffle_real], fake_images[indx_shuffle_fake], batch_size = 100, resize = None)
@@ -383,13 +397,11 @@ if args.comp_FID or args.comp_LS:
         #####################
         # generate nfake images
         print("Start sampling {} fake images from GAN >>>".format(args.nfake))
-        eval_labels = np.arange(args.start_count, args.end_count + 1)/args.end_count
+        eval_labels = np.arange(args.start_count, args.end_count + 1)
         num_eval_labels = len(eval_labels)
 
-        # print(eval_labels.reshape(-1))
-
         for i in tqdm(range(num_eval_labels)):
-            curr_label = eval_labels[i]
+            curr_label = eval_labels[i]/args.end_count
             if i == 0:
                 curr_nfake = args.nfake - (args.nfake//num_eval_labels) * (num_eval_labels-1)
                 curr_fake_images, curr_fake_counts = fn_sampleGAN_given_label(curr_nfake, curr_label, args.samp_batch_size)
@@ -407,20 +419,106 @@ if args.comp_FID or args.comp_LS:
         #####################
         # FID
         if args.comp_FID:
-            real_images_norm = (images_eval/255.0-0.5)/0.5
-            del images_eval; gc.collect()
-            indx_shuffle_real = np.arange(len(real_images_norm)); np.random.shuffle(indx_shuffle_real)
-            indx_shuffle_fake = np.arange(args.nfake); np.random.shuffle(indx_shuffle_fake)
-            FID = cal_FID(PreNetFID, real_images_norm[indx_shuffle_real], fake_images[indx_shuffle_fake], batch_size = 100, resize = None)
+            real_images_norm = (raw_images/255.0-0.5)/0.5
+            # indx_shuffle_real = np.arange(len(real_images_norm)); np.random.shuffle(indx_shuffle_real)
+            # indx_shuffle_fake = np.arange(args.nfake); np.random.shuffle(indx_shuffle_fake)
+            # FID = cal_FID(PreNetFID, real_images_norm[indx_shuffle_real], fake_images[indx_shuffle_fake], batch_size = 100, resize = None)
+            FID_all = np.zeros(num_eval_labels)
+            for i in range(num_eval_labels):
+                curr_label = eval_labels[i]
+                print("Computing FID for label {} >>>".format(curr_label))
+                indx_curr_label_real = np.where(raw_counts==curr_label)[0]
+                curr_real_images = real_images_norm[indx_curr_label_real]
+                curr_fake_images, _ = fn_sampleGAN_given_label(len(curr_real_images), curr_label/args.end_count, args.samp_batch_size)
+                FID_all[i] = cal_FID(PreNetFID, curr_real_images, curr_fake_images, batch_size = 100, resize = None)
+            #end for i
+            FID_mean = np.mean(FID_all)
+            FID_std = np.std(FID_all)
+            # print(FID_all)
         else:
-            FID = 'NaN'
+            FID_mean = 'NaN'
+            FID_std = 'NaN'
 
         #####################
         # Label score (LS)
         if args.comp_LS:
-            labelscore = cal_labelscore(PreNetLS, fake_images, fake_labels_assigned, batch_size = 100, resize = None)
-            labelscore = labelscore*args.end_count #back to original scale
+            ls_mean, ls_std = cal_labelscore(PreNetLS, fake_images, fake_labels_assigned, batch_size = 100, resize = None)
+            ls_mean = ls_mean*args.end_count #back to original scale
         else:
-            labelscore = 'NaN'
+            ls_mean = 'NaN'
+            ls_std = 'NaN'
 
-        print("\n {} FID: {}; LS: {}.".format(args.GAN, FID, labelscore))
+        print("\n {} FID: {}({}); LS: {}({}).".format(args.GAN, FID_mean, FID_std, ls_mean, ls_std))
+
+
+
+#######################################################################################
+'''               Visualize fake images of the trained GAN                          '''
+#######################################################################################
+if args.visualize_fake_images and args.GAN != "DCGAN":
+
+    # First, visualize conditional generation on several unseen cell counts
+    ## 3 rows (3 samples); 10 columns (10 unseen cell counts; displayed cell count starts from 10)
+    n_row = 3
+    n_col = 10
+    all_unique_cellcounts = np.arange(args.start_count, args.end_count+1)
+    unseen_unique_cellcounts = np.sort(np.setdiff1d(all_unique_cellcounts, selected_cellcounts))
+    unseen_unique_cellcounts = unseen_unique_cellcounts[unseen_unique_cellcounts>=10]
+    stepsize_tmp = len(unseen_unique_cellcounts)//(n_col-1)
+    for i_col in range(n_col):
+        if i_col==0:
+            displayed_cellcounts = [unseen_unique_cellcounts[i_col]]
+        else:
+            displayed_cellcounts.append(unseen_unique_cellcounts[i_col*stepsize_tmp])
+    print("\n Displayed {} cell counts are:".format(len(displayed_cellcounts)), displayed_cellcounts)
+
+    ### output some real images as baseline
+    filename_real_images = save_images_folder + '/real_images_grid_{}x{}.png'.format(n_row, n_col)
+    if not os.path.isfile(filename_real_images):
+        images_show = np.zeros((n_row*n_col, images.shape[1], images.shape[2], images.shape[3]))
+        for i_row in range(n_row):
+            for j_col in range(n_col):
+                curr_label = displayed_cellcounts[j_col]
+                indx_curr_label = np.where(raw_counts==curr_label)[0]
+                np.random.shuffle(indx_curr_label)
+                indx_curr_label = indx_curr_label[0]
+                images_show[i_row*n_col+j_col] = raw_images[indx_curr_label]
+        images_show = (images_show/255.0-0.5)/0.5
+        images_show = torch.from_numpy(images_show)
+        save_image(images_show.data, filename_real_images, nrow=n_col, normalize=True)
+
+    ### output fake images from a trained GAN
+    if args.GAN == 'Continuous_cDCGAN':
+        filename_fake_images = save_images_folder + '/{}_{}_sigma_{}_kappa_{}_fake_images_grid_{}x{}.png'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa, n_row, n_col)
+    else:
+        filename_fake_images = save_images_folder + '/{}_fake_images_grid_{}x{}.png'.format(args.GAN, n_row, n_col)
+    images_show = np.zeros((n_row*n_col, images.shape[1], images.shape[2], images.shape[3]))
+    for i_row in range(n_row):
+        for j_col in range(n_col):
+            curr_label = displayed_cellcounts[j_col]/args.end_count
+            curr_image, _ = fn_sampleGAN_given_label(1, curr_label, 1)
+            images_show[i_row*n_col+j_col,:,:,:] = curr_image
+    images_show = torch.from_numpy(images_show)
+    save_image(images_show.data, filename_fake_images, nrow=n_col, normalize=True)
+
+
+    # Second, fix z but increase y; check whether there is a continuous change, only for CcGAN
+    # y's range: [ 10  31  52  73  94 115 136 157 178 200]
+    if args.GAN == 'Continuous_cDCGAN':
+        n_continuous_labels = 10
+        normalized_continuous_cellcounts = np.linspace(0.05, 1, n_continuous_labels)
+        z = torch.randn(1, args.dim_gan, dtype=torch.float).to(device)
+        continuous_images_show = torch.zeros(n_continuous_labels, NC, IMG_SIZE, IMG_SIZE, dtype=torch.float)
+
+        netG.eval()
+        with torch.no_grad():
+            for i in range(n_continuous_labels):
+                y = np.ones(1) * normalized_continuous_cellcounts[i]
+                y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
+                fake_image_i = netG(z, y)
+                continuous_images_show[i,:,:,:] = fake_image_i.cpu()
+
+        filename_continous_fake_images = save_images_folder + '/{}_{}_sigma_{}_kappa_{}_continuous_fake_images_grid.png'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa)
+        save_image(continuous_images_show.data, filename_continous_fake_images, nrow=n_continuous_labels, normalize=True)
+
+        print("Continuous ys: ", (normalized_continuous_cellcounts*args.end_count).astype(np.int))

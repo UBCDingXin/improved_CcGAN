@@ -80,6 +80,10 @@ def cal_FID(PreNetFID, IMGSr, IMGSg, batch_size = 500, resize = None):
     nc = IMGSr.shape[1] #IMGSr is nrxNCxIMG_SIExIMG_SIZE
     img_size = IMGSr.shape[2]
 
+    if batch_size > min(nr, ng):
+        batch_size = min(nr, ng)
+        # print("FID: recude batch size to {}".format(batch_size))
+
     #compute the length of extracted features
     with torch.no_grad():
         test_img = torch.from_numpy(IMGSr[0].reshape((1,nc,img_size,img_size))).type(torch.float).cuda()
@@ -164,8 +168,7 @@ def cal_labelscore(PreNet, images, labels_assi, batch_size = 500, resize = None)
         del image_tensor; gc.collect()
         torch.cuda.empty_cache()
 
-    labelscore = np.mean(np.abs(labels_pred-labels_assi))
+    ls_mean = np.mean(np.abs(labels_pred-labels_assi))
+    ls_std = np.std(np.abs(labels_pred-labels_assi))
 
-    # labelscore = np.sqrt(np.mean((labels_pred-labels_assi)**2)) #||y-y^hat||_2
-
-    return labelscore
+    return ls_mean, ls_std

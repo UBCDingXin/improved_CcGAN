@@ -140,8 +140,14 @@ def train_Continuous_cDCGAN(train_labels, kernel_sigma, threshold_type, kappa, e
 
             # compute weight for x_j when it is used to learn p(x|y_i+epsilon)
             if threshold_type == "soft":
-                real_weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
-                fake_weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
+                # real_weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
+                # fake_weights_x_j = np.clip(np.exp(-kernel_sigma*(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
+                # real_weights_x_j = np.clip(np.exp(-kappa*(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
+                # fake_weights_x_j = np.clip(np.exp(-kappa*(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2), 1e-20, 1e+20)
+
+                real_weights_x_j = np.exp(-kappa*(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2)
+                fake_weights_x_j = np.exp(-kappa*(batch_train_labels_1.cpu().numpy()+batch_epsilons_1-batch_train_labels_2.cpu().numpy()-batch_epsilons_2)**2)
+
             else:
                 real_weights_x_j = np.zeros(BATCH_SIZE)
                 indx = np.where(np.abs(batch_train_labels_1.cpu().numpy()-batch_train_labels_2.cpu().numpy()-batch_epsilons_2) <= kappa)[0]
@@ -208,6 +214,7 @@ def SampCcDCGAN_given_label(netG, label, path=None, dim_GAN = 128, NFAKE = 10000
     fake_images = np.zeros((NFAKE+batch_size, NC, IMG_SIZE, IMG_SIZE), dtype=np.float)
     netG=netG.to(device)
     netG.eval()
+
     with torch.no_grad():
         tmp = 0
         while tmp < NFAKE:
@@ -231,3 +238,12 @@ def SampCcDCGAN_given_label(netG, label, path=None, dim_GAN = 128, NFAKE = 10000
             im = im.save(filename)
 
     return fake_images, fake_labels
+
+
+        # with torch.no_grad():
+        #     given_z = given_z.reshape(1,-1)
+        #     z = torch.from_numpy(given_z).type(torch.float).to(device)
+        #     y = (np.ones(1) * label).type(torch.float).view(-1,1).to(device)
+        #     fake_image = netG(z, y).cpu().detach().numpy()
+        #
+        # return fake_image
