@@ -13,18 +13,28 @@ https://github.com/SullyChen/driving-datasets
 
 # 2. Experiments
 
-## 2.1 Cell-110
-Cell counts from the toppest row to the lowest row are 5, 17, 28, 40, 52, 63, 75, 86, 98, 110 
-## HVDL: sigma=0.01, kappa=0.02
-![](./images/Cell110/Continuous_cDCGAN_hard_0.01_0.02.gif)
+## 2.1 Simulation: Gaussians on a unit circle
+Refer to https://docs.google.com/spreadsheets/d/1bWYXQBbMjRaxizWJndddFJJi-r1L0d6qB6cto34ICvw/edit?usp=sharing
 
-## HVDL: sigma=0.02, kappa=0.04
-![](./images/Cell110/Continuous_cDCGAN_hard_0.02_0.04.gif)
+## Training data
+![](./images/Simulation/samples_train_with_means_nSim_0.png)
 
-## SVDL: sigma=0.01, kappa=0.02
-![](./images/Cell110/Continuous_cDCGAN_soft_0.01_0.02.gif)
+## cGAN
+![](./images/Simulation/cGAN_real_fake_samples_nSim_0.png)
 
-## SVDL: sigma=0.02, kappa=0.04
-![](./images/Cell110/Continuous_cDCGAN_soft_0.02_0.04.gif)
+## HVDL: sigma and kappa are computed base on the rule of thumb rule
+![](./images/Simulation/CcGAN_real_fake_samples_hard_nSim_0.png)
+
+## SVDL: sigma and kappa are computed base on the rule of thumb rule
+![](./images/Simulation/CcGAN_real_fake_samples_soft_nSim_0.png)
 
 
+
+## 2.2 Cell-200
+Refer to https://docs.google.com/spreadsheets/d/13S9xVsWKAMDdc34ke8CZIvxiU3vACaCr1EWi_B_xXFE/edit?usp=sharing 
+
+## Data generation for 10 unseen cell counts
+![](./images/Cell200/Cell200_comparison.png)
+
+## CcGAN: Fix z but vary y
+![](./images/Cell200/Cell200_fixed_z_continuous_label.png)
