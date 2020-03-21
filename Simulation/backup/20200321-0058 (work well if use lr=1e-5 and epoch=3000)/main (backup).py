@@ -4,8 +4,6 @@
 
 '''
 
-print("\n==================================================================================================")
-
 wd = '/home/xin/OneDrive/Working_directory/Continuous_cGAN/Simulation'
 
 import os
@@ -75,7 +73,7 @@ parser.add_argument('--threshold_type', type=str, default='hard',
                     choices=['soft', 'hard'])
 parser.add_argument('--kernel_sigma', type=float, default=-1.0,
                     help='If kernel_sigma<0, then use rule-of-thumb formula to compute the sigma.')
-parser.add_argument('--kappa', type=float, default=-1.0)
+parser.add_argument('--kappa', type=float, default=1)
 
 
 ''' Sampling and Evaluation '''
@@ -86,6 +84,8 @@ parser.add_argument('--samp_batch_size_eval', type=int, default=100)
 
 
 ''' Visualization '''
+# parser.add_argument('--show_visualization', action='store_true', default=False,
+#                     help='Plot fake samples in 2D coordinate')
 parser.add_argument('--n_gaussians_plot', type=int, default=12) #number of unseen labels for plotting
 parser.add_argument('--n_samp_per_gaussian_plot', type=int, default=100) # number of fake samples for each Gaussian
 parser.add_argument('--samp_batch_size_plot', type=int, default=100)
@@ -136,10 +136,10 @@ assert len(np.intersect1d(unseen_angle_grid_plot, angle_grid_train))==0
 # standard deviation of each Gaussian
 sigma_gaussian = args.sigma_gaussian
 ### threshold to determine high quality samples
-quality_threshold = sigma_gaussian*7 #good samples are within 7 standard deviation
+# quality_threshold = sigma_gaussian*7 #good samples are within 7 standard deviation
 # distance_between_2modes = args.radius*np.sqrt(2-2*np.cos(2*np.pi/n_gaussians))
 # quality_threshold = min(sigma_gaussian*5, distance_between_2modes) + distance_between_2modes
-print("Quality threshold is {}".format(quality_threshold))
+# print("Quality threshold is {}".format(quality_threshold))
 
 #--------------------------------
 # GAN Settings
@@ -226,20 +226,19 @@ for nSim in range(args.nsim):
         # rule-of-thumb for the bandwidth selection
         if args.kernel_sigma<0:
             std_angles_train = np.std(angles_train)
-            args.kernel_sigma = 1.06*std_angles_train*(len(angles_train))**(-1/5)
-            # q75_angles_train, q25_angles_train = np.percentile(angles_train, [75 ,25])
-            # iqr_angles_train = q75_angles_train - q25_angles_train
+            q75_angles_train, q25_angles_train = np.percentile(angles_train, [75 ,25])
+            iqr_angles_train = q75_angles_train - q25_angles_train
             # args.kernel_sigma = 1.06*min(std_angles_train, iqr_angles_train/1.34)*(len(angles_train))**(-1/5)
-            # args.kernel_sigma = 0.9*min(std_angles_train, iqr_angles_train/1.34)*(len(angles_train))**(-1/5) # Silverman's (1986) rule of thumb
+            args.kernel_sigma = 0.9*min(std_angles_train, iqr_angles_train/1.34)*(len(angles_train))**(-1/5) # Silverman's (1986) rule of thumb
             print("\n Use rule-of-thumb formula to compute kernel_sigma >>>")
-            # print("\n The std and iqr/1.34 of {} normalized angles are {} and {} so the kernel sigma is {}".format(len(angles_train), std_angles_train, iqr_angles_train/1.34, args.kernel_sigma))
+            print("\n The std and iqr/1.34 of {} normalized angles are {} and {} so the kernel sigma is {}".format(len(angles_train), std_angles_train, iqr_angles_train/1.34, args.kernel_sigma))
 
             # args.kernel_sigma = 1/args.n_gaussians
 
         if args.kappa < 0:
             if args.threshold_type=="hard":
-                # args.kappa = 1/args.n_gaussians
-                args.kappa = 2/args.n_gaussians
+                args.kappa = 1/args.n_gaussians
+                # args.kappa = 2/args.n_gaussians
                 # args.kappa = (1/args.n_gaussians + 3*args.kernel_sigma) * (len(angles_train)/args.n_gaussians)**(-1/2)
             else:
                 # args.kappa = 1/((1/args.n_gaussians)**2)
@@ -357,28 +356,28 @@ for nSim in range(args.nsim):
     if args.eval:
         print("\n Start evaluation >>>")
 
-        # percentage of high quality and recovered modes
-        for i_ang in range(len(angle_grid_eval)):
-            angle_curr = angle_grid_eval[i_ang]
-            mean_curr = np.array([radius*np.sin(angle_curr), radius*np.cos(angle_curr)])
-            fake_samples_curr = fn_sampleGAN_given_label(args.n_samp_per_gaussian_eval, angle_curr/(2*np.pi), batch_size=args.n_samp_per_gaussian_eval)
-            mean_curr_repeat = np.repeat(mean_curr.reshape(1,n_features), args.n_samp_per_gaussian_eval, axis=0)
-            assert mean_curr_repeat.shape[0]==args.n_samp_per_gaussian_eval and mean_curr_repeat.shape[1]==n_features
-            assert fake_samples_curr.shape[0]==args.n_samp_per_gaussian_eval and fake_samples_curr.shape[1]==n_features
-            #l2 distance between a fake sample and its mean
-            l2_dis_fake_samples_curr = np.sqrt(np.sum((fake_samples_curr-mean_curr_repeat)**2, axis=1))
-            assert len(l2_dis_fake_samples_curr)==args.n_samp_per_gaussian_eval
-            if i_ang == 0:
-                l2_dis_fake_samples = l2_dis_fake_samples_curr
-            else:
-                l2_dis_fake_samples = np.concatenate((l2_dis_fake_samples, l2_dis_fake_samples_curr))
-
-            # whether this mode is recovered?
-            if sum(l2_dis_fake_samples_curr<=quality_threshold)>0:
-                prop_recovered_modes[nSim] += 1
-        #end for i_ang
-        prop_recovered_modes[nSim] = (prop_recovered_modes[nSim]/len(angle_grid_eval))*100
-        prop_good_samples[nSim] = sum(l2_dis_fake_samples<=quality_threshold)/len(l2_dis_fake_samples)*100 #proportion of good fake samples
+        # # percentage of high quality and recovered modes
+        # for i_ang in range(len(angle_grid_eval)):
+        #     angle_curr = angle_grid_eval[i_ang]
+        #     mean_curr = np.array([radius*np.sin(angle_curr), radius*np.cos(angle_curr)])
+        #     fake_samples_curr = fn_sampleGAN_given_label(args.n_samp_per_gaussian_eval, angle_curr/(2*np.pi), batch_size=args.n_samp_per_gaussian_eval)
+        #     mean_curr_repeat = np.repeat(mean_curr.reshape(1,n_features), args.n_samp_per_gaussian_eval, axis=0)
+        #     assert mean_curr_repeat.shape[0]==args.n_samp_per_gaussian_eval and mean_curr_repeat.shape[1]==n_features
+        #     assert fake_samples_curr.shape[0]==args.n_samp_per_gaussian_eval and fake_samples_curr.shape[1]==n_features
+        #     #l2 distance between a fake sample and its mean
+        #     l2_dis_fake_samples_curr = np.sqrt(np.sum((fake_samples_curr-mean_curr_repeat)**2, axis=1))
+        #     assert len(l2_dis_fake_samples_curr)==args.n_samp_per_gaussian_eval
+        #     if i_ang == 0:
+        #         l2_dis_fake_samples = l2_dis_fake_samples_curr
+        #     else:
+        #         l2_dis_fake_samples = np.concatenate((l2_dis_fake_samples, l2_dis_fake_samples_curr))
+        #
+        #     # whether this mode is recovered?
+        #     if sum(l2_dis_fake_samples_curr<=quality_threshold)>0:
+        #         prop_recovered_modes[nSim] += 1
+        # #end for i_ang
+        # prop_recovered_modes[nSim] = (prop_recovered_modes[nSim]/len(angle_grid_eval))*100
+        # prop_good_samples[nSim] = sum(l2_dis_fake_samples<=quality_threshold)/len(l2_dis_fake_samples)*100 #proportion of good fake samples
 
 
         # 2-Wasserstein Distance
@@ -408,6 +407,32 @@ for nSim in range(args.nsim):
         # end for i_ang
         avg_two_w_dist[nSim] = sum(two_w_dist_all)/len(two_w_dist_all) #average over all evaluation angles
 
+
+        # ### visualize fake samples
+        # if args.GAN == "CcGAN":
+        #     filename_tmp = save_images_folder + '{}_real_fake_samples_{}_sigma_{}_kappa_{}_nSim_{}.png'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa, nSim)
+        # else:
+        #     filename_tmp = save_images_folder + '{}_real_fake_samples_nSim_{}.png'.format(args.GAN, nSim)
+        #
+        # fake_samples = np.zeros((args.n_gaussians_eval*args.n_samp_per_gaussian_eval, n_features))
+        # for i_tmp in range(args.n_gaussians_eval):
+        #     angle_curr = angle_grid_eval[i_tmp]
+        #     fake_samples_curr = fn_sampleGAN_given_label(args.n_samp_per_gaussian_eval, angle_curr/(2*np.pi), batch_size=args.n_samp_per_gaussian_eval)
+        #     if i_tmp == 0:
+        #         fake_samples = fake_samples_curr
+        #     else:
+        #         fake_samples = np.concatenate((fake_samples, fake_samples_curr), axis=0)
+        #
+        # real_samples_eval, _, _ = generate_data(args.n_samp_per_gaussian_eval, angle_grid_eval)
+        #
+        # plt.switch_backend('agg')
+        # mpl.style.use('seaborn')
+        # plt.figure(figsize=(10, 10), facecolor='w')
+        # plt.grid(b=True)
+        # plt.scatter(real_samples_eval[:, 0], real_samples_eval[:, 1], c='blue', edgecolor='none', alpha=0.5, s=8, label="Real samples")
+        # plt.scatter(fake_samples[:, 0], fake_samples[:, 1], c='red', edgecolor='none', alpha=1, s=8, label="Fake samples")
+        # plt.legend()
+        # plt.savefig(filename_tmp)
 
         ### visualize fake samples
         if args.GAN == "CcGAN":
@@ -441,14 +466,13 @@ print("GAN training finished; Time elapses: {}s".format(stop - start))
 
 
 
+# print("\n Prop. of good quality samples>>>\n")
+# print(prop_good_samples)
+# print("\n Prop. good samples over %d Sims: %.1f (%.1f)" % (args.nsim, np.mean(prop_good_samples), np.std(prop_good_samples)))
+# print("\n Prop. of recovered modes>>>\n")
+# print(prop_recovered_modes)
+# print("\n Prop. recovered modes over %d Sims: %.1f (%.1f)" % (args.nsim, np.mean(prop_recovered_modes), np.std(prop_recovered_modes)))
+
 print("\n {}, Sigma is {}, Kappa is {}".format(args.threshold_type, args.kernel_sigma, args.kappa))
-
-print("\n Prop. of good quality samples>>>\n")
-print(prop_good_samples)
-print("\n Prop. good samples over %d Sims: %.1f (%.1f)" % (args.nsim, np.mean(prop_good_samples), np.std(prop_good_samples)))
-print("\n Prop. of recovered modes>>>\n")
-print(prop_recovered_modes)
-print("\n Prop. recovered modes over %d Sims: %.1f (%.1f)" % (args.nsim, np.mean(prop_recovered_modes), np.std(prop_recovered_modes)))
-
 print("\r 2-Wasserstein Distance: %.3f (%.3f)"% (np.mean(avg_two_w_dist), np.std(avg_two_w_dist)))
 print(avg_two_w_dist)

@@ -11,6 +11,13 @@ default_bias = False
 
 NC = 1
 
+# def one_hot_encode(labels, num_classes):
+#     ones = torch.sparse.torch.eye(num_classes)
+#     ones = ones.type(torch.float)
+#     if labels.is_cuda:
+#         ones = ones.cuda()
+#     return ones.index_select(0,labels)
+
 
 #########################################################
 # genearator
@@ -50,6 +57,7 @@ class cond_cnn_generator(nn.Module):
     def forward(self, input, labels):
         input = input.view(-1, self.nz)
         input = torch.cat((self.label_emb(labels), input), 1)
+        # input = torch.cat((one_hot_encode(labels, self.num_classes), input), 1)
         output = self.linear(input)
         output = output.view(-1, 8*self.ngf, 4, 4)
         output = self.main(output)
@@ -90,6 +98,7 @@ class cond_cnn_discriminator(nn.Module):
         output = self.main(input)
         output = output.view(-1, self.ndf*8*4*4)
         output = torch.cat((self.label_emb(labels), output), 1)
+        # output = torch.cat((one_hot_encode(labels, self.num_classes), output), 1)
         output = self.linear(output)
 
         return output.view(-1, 1)

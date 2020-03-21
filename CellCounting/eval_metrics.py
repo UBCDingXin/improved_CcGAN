@@ -18,7 +18,7 @@ IMGSg: fake images
 
 import gc
 import numpy as np
-from numpy import linalg as LA
+# from numpy import linalg as LA
 from scipy import linalg
 import torch
 import torch.nn as nn
@@ -43,7 +43,7 @@ def FID(Xr, Xg, eps=1e-10):
     #sample mean
     MUr = np.mean(Xr, axis = 0)
     MUg = np.mean(Xg, axis = 0)
-    mean_diff = LA.norm( MUr - MUg )
+    mean_diff = MUr - MUg
     #sample covariance
     SIGMAr = np.cov(Xr.transpose())
     SIGMAg = np.cov(Xg.transpose())
@@ -59,7 +59,7 @@ def FID(Xr, Xg, eps=1e-10):
         covmean = linalg.sqrtm((SIGMAr + offset).dot(SIGMAg + offset))
 
     #fid score
-    fid_score = mean_diff + np.trace(SIGMAr + SIGMAg - 2*covmean)
+    fid_score = mean_diff.dot(mean_diff) + np.trace(SIGMAr + SIGMAg - 2*covmean)
 
     return fid_score
 

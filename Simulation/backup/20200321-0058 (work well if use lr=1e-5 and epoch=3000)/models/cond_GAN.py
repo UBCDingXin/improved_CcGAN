@@ -74,14 +74,26 @@ class cond_discriminator(nn.Module):
             nn.Linear(self.inner_dim, self.inner_dim), #layer 4
             nn.ReLU(True),
 
+            # nn.Linear(self.inner_dim, self.inner_dim), #layer 3
+            # nn.ReLU(True),
+
         )
 
         self.output = nn.Sequential(
             nn.Linear(self.inner_dim+num_classes, self.inner_dim), #layer 2
             nn.ReLU(True),
 
+            # nn.Linear(self.inner_dim, self.inner_dim), #layer 3
+            # nn.ReLU(True),
+
+            # nn.Linear(self.inner_dim, self.inner_dim), #layer 3
+            # nn.ReLU(True),
+
             nn.Linear(self.inner_dim, 1),
             nn.Sigmoid()
+
+            # nn.Linear(self.inner_dim+num_classes, 1),
+            # nn.Sigmoid()
         )
 
         self.label_emb = nn.Embedding(num_classes, num_classes)

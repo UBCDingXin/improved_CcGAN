@@ -21,15 +21,23 @@ class cond_generator(nn.Module):
                 nn.BatchNorm1d(inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(inner_dim, inner_dim), #layer 2
-                nn.BatchNorm1d(inner_dim),
-                nn.ReLU(True),
-
                 nn.Linear(inner_dim, inner_dim), #layer 3
                 nn.BatchNorm1d(inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(inner_dim, self.out_dim), #layer 4
+                nn.Linear(inner_dim, inner_dim), #layer 4
+                nn.BatchNorm1d(inner_dim),
+                nn.ReLU(True),
+
+                nn.Linear(inner_dim, inner_dim), #layer 5
+                nn.BatchNorm1d(inner_dim),
+                nn.ReLU(True),
+
+                nn.Linear(inner_dim, inner_dim), #layer 6
+                nn.BatchNorm1d(inner_dim),
+                nn.ReLU(True),
+
+                nn.Linear(inner_dim, self.out_dim), #layer 7
         )
 
         self.label_emb = nn.Embedding(num_classes, num_classes)
@@ -54,7 +62,7 @@ class cond_discriminator(nn.Module):
 
         self.inner_dim = 100
         self.main = nn.Sequential(
-            nn.Linear(self.input_dim, self.inner_dim), #Layer 1
+            nn.Linear(self.input_dim+num_classes, self.inner_dim), #Layer 1
             nn.ReLU(True),
 
             nn.Linear(self.inner_dim, self.inner_dim), #layer 2
@@ -63,32 +71,26 @@ class cond_discriminator(nn.Module):
             nn.Linear(self.inner_dim, self.inner_dim), #layer 3
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, self.inner_dim), #layer 3
+            nn.Linear(self.inner_dim, self.inner_dim), #layer 4
             nn.ReLU(True),
-            
-            # nn.Linear(inner_dim, 1), #layer 4
-            # nn.Sigmoid()
-        )
 
-        self.output = nn.Sequential(
-            nn.Linear(self.inner_dim+num_classes, 1),
+            nn.Linear(self.inner_dim, self.inner_dim), #layer 5
+            nn.ReLU(True),
+
+            nn.Linear(self.inner_dim, 1), #layer 6
             nn.Sigmoid()
+
         )
 
         self.label_emb = nn.Embedding(num_classes, num_classes)
 
 
     def forward(self, input, labels):
+        input = torch.cat((self.label_emb(labels), input), 1)
         if input.is_cuda and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
-            output = output.view(-1, self.inner_dim)
-            output = torch.cat((self.label_emb(labels), output), 1)
-            output = nn.parallel.data_parallel(self.output, output, range(self.ngpu))
         else:
             output = self.main(input)
-            output = output.view(-1, self.inner_dim)
-            output = torch.cat((self.label_emb(labels), output), 1)
-            output = self.output(output)
         return output.view(-1, 1)
 
 

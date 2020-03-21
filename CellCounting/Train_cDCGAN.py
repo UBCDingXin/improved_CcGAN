@@ -106,7 +106,7 @@ def train_cDCGAN(unique_labels, EPOCHS_GAN, GAN_Latent_Length, trainloader, netG
             if batch_idx%20 == 0:
                 print ("cDCGAN: [Iter %d] [Epoch %d/%d] [D loss: %.4f] [G loss: %.4f] [D prob real:%.4f] [D prob fake:%.4f]" % (gen_iterations, epoch + 1, EPOCHS_GAN, d_loss.item(), g_loss.item(), prob_real.mean().item(),prob_fake.mean().item()))
 
-            if gen_iterations % 100 == 0:
+            if gen_iterations % 1000 == 0:
                 netG.eval()
                 with torch.no_grad():
                     gen_imgs = netG(z_fixed, y_fixed)

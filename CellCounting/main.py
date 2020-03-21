@@ -1,3 +1,6 @@
+print("\n===================================================================================================")
+
+
 import os
 wd = '/home/xin/OneDrive/Working_directory/Continuous_cGAN/CellCounting'
 
@@ -418,26 +421,34 @@ if args.comp_FID or args.comp_LS:
 
         #####################
         # FID
+        # if args.comp_FID:
+        #     real_images_norm = (raw_images/255.0-0.5)/0.5
+        #     # indx_shuffle_real = np.arange(len(real_images_norm)); np.random.shuffle(indx_shuffle_real)
+        #     # indx_shuffle_fake = np.arange(args.nfake); np.random.shuffle(indx_shuffle_fake)
+        #     # FID = cal_FID(PreNetFID, real_images_norm[indx_shuffle_real], fake_images[indx_shuffle_fake], batch_size = 100, resize = None)
+        #     FID_all = np.zeros(num_eval_labels)
+        #     for i in range(num_eval_labels):
+        #         curr_label = eval_labels[i]
+        #         print("Computing FID for label {} >>>".format(curr_label))
+        #         indx_curr_label_real = np.where(raw_counts==curr_label)[0]
+        #         curr_real_images = real_images_norm[indx_curr_label_real]
+        #         curr_fake_images, _ = fn_sampleGAN_given_label(len(curr_real_images), curr_label/args.end_count, args.samp_batch_size)
+        #         FID_all[i] = cal_FID(PreNetFID, curr_real_images, curr_fake_images, batch_size = 100, resize = None)
+        #     #end for i
+        #     FID_mean = np.mean(FID_all)
+        #     FID_std = np.std(FID_all)
+        #     # print(FID_all)
+        # else:
+        #     FID_mean = 'NaN'
+        #     FID_std = 'NaN'
+
         if args.comp_FID:
             real_images_norm = (raw_images/255.0-0.5)/0.5
-            # indx_shuffle_real = np.arange(len(real_images_norm)); np.random.shuffle(indx_shuffle_real)
-            # indx_shuffle_fake = np.arange(args.nfake); np.random.shuffle(indx_shuffle_fake)
-            # FID = cal_FID(PreNetFID, real_images_norm[indx_shuffle_real], fake_images[indx_shuffle_fake], batch_size = 100, resize = None)
-            FID_all = np.zeros(num_eval_labels)
-            for i in range(num_eval_labels):
-                curr_label = eval_labels[i]
-                print("Computing FID for label {} >>>".format(curr_label))
-                indx_curr_label_real = np.where(raw_counts==curr_label)[0]
-                curr_real_images = real_images_norm[indx_curr_label_real]
-                curr_fake_images, _ = fn_sampleGAN_given_label(len(curr_real_images), curr_label/args.end_count, args.samp_batch_size)
-                FID_all[i] = cal_FID(PreNetFID, curr_real_images, curr_fake_images, batch_size = 100, resize = None)
-            #end for i
-            FID_mean = np.mean(FID_all)
-            FID_std = np.std(FID_all)
-            # print(FID_all)
+            indx_shuffle_real = np.arange(len(real_images_norm)); np.random.shuffle(indx_shuffle_real)
+            indx_shuffle_fake = np.arange(args.nfake); np.random.shuffle(indx_shuffle_fake)
+            FID = cal_FID(PreNetFID, real_images_norm[indx_shuffle_real], fake_images[indx_shuffle_fake], batch_size = 100, resize = None)
         else:
-            FID_mean = 'NaN'
-            FID_std = 'NaN'
+            FID = 'NaN'
 
         #####################
         # Label score (LS)
@@ -448,7 +459,8 @@ if args.comp_FID or args.comp_LS:
             ls_mean = 'NaN'
             ls_std = 'NaN'
 
-        print("\n {} FID: {}({}); LS: {}({}).".format(args.GAN, FID_mean, FID_std, ls_mean, ls_std))
+        # print("\n {} FID: {}({}); LS: {}({}).".format(args.GAN, FID_mean, FID_std, ls_mean, ls_std))
+        print("\n {} FID: {}; LS: {}({}).".format(args.GAN, FID, ls_mean, ls_std))
 
 
 
