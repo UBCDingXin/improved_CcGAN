@@ -105,8 +105,8 @@ ADAM_beta2 = 0.999
 # sampling parameters
 samp_batch_size = args.samp_batch_size #batch size for sampling from GAN or enhanced sampler
 
--------------------------------
-seeds
+#-------------------------------
+#seeds
 random.seed(args.seed)
 torch.manual_seed(args.seed)
 torch.backends.cudnn.deterministic = True
