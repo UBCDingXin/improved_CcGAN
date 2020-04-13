@@ -11,8 +11,8 @@ import torch.nn.functional as F
 
 NC=3
 
-label_width_g = 32
-label_width_d = 32
+label_width_g = 1
+label_width_d = 1
 
 
 default_bias = False
@@ -45,7 +45,7 @@ def self_act_fc(x, y):
 #########################################################
 # genearator
 class cont_cond_cnn_generator(nn.Module):
-    def __init__(self, nz=128, ngf=64, nc=NC, bias = default_bias):
+    def __init__(self, nz=128, img_size=64, ngf=64, nc=NC, bias = default_bias):
         super(cont_cond_cnn_generator, self).__init__()
         self.nz = nz
         self.ngf =ngf
@@ -89,15 +89,33 @@ class cont_cond_cnn_generator(nn.Module):
             nn.ReLU(True),
         )
 
-        self.genblock4 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 2, ngf, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
-            nn.BatchNorm2d(ngf),
-            nn.ReLU(True),
-            # state size. 64 x 64
+        if img_size == 64:
+            self.genblock4 = nn.Sequential(
+                nn.ConvTranspose2d(ngf * 2, ngf, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
+                nn.BatchNorm2d(ngf),
+                nn.ReLU(True),
+                # state size. 64 x 64
 
-            nn.Conv2d(ngf, nc, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.Tanh()
-        )
+                nn.Conv2d(ngf, nc, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+                nn.Tanh()
+            )
+        elif img_size == 128:
+            self.genblock4 = nn.Sequential(
+                nn.ConvTranspose2d(ngf * 2, ngf, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
+                nn.BatchNorm2d(ngf),
+                nn.ReLU(True),
+                # state size. 64 x 64
+                nn.Conv2d(ngf, ngf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+                nn.BatchNorm2d(ngf),
+                nn.ReLU(True),
+
+                nn.ConvTranspose2d(ngf, ngf, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
+                nn.BatchNorm2d(ngf),
+                nn.ReLU(True),
+                # state size. 128 x 128
+                nn.Conv2d(ngf, nc, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+                nn.Tanh()
+            )
 
 
     def forward(self, z, y):
@@ -128,21 +146,44 @@ class cont_cond_cnn_generator(nn.Module):
 # discriminator
 
 class cont_cond_cnn_discriminator(nn.Module):
-    def __init__(self, use_sigmoid = True, nc=NC, ndf=64, bias = default_bias):
+    def __init__(self, img_size=64, nc=NC, ndf=64, bias = default_bias):
         super(cont_cond_cnn_discriminator, self).__init__()
         self.ndf = ndf
 
-        self.inputblock = nn.Sequential(
-            # input is (nc) x 64 x 64
-            nn.Conv2d(nc, ndf, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
-            nn.BatchNorm2d(ndf),
-            nn.LeakyReLU(0.2, inplace=True),
-            # input is ndf x 32 x 32
+        if img_size == 64:
+            self.inputblock = nn.Sequential(
+                # input is (nc) x 64 x 64
+                nn.Conv2d(nc, ndf, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+                nn.BatchNorm2d(ndf),
+                nn.LeakyReLU(0.2, inplace=True),
+                # input is ndf x 32 x 32
 
-            nn.Conv2d(ndf, ndf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.BatchNorm2d(ndf),
-            nn.LeakyReLU(0.2, inplace=True),
-        )
+                nn.Conv2d(ndf, ndf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+                nn.BatchNorm2d(ndf),
+                nn.LeakyReLU(0.2, inplace=True),
+            )
+        elif img_size == 128:
+            self.inputblock = nn.Sequential(
+                # input is (nc) x 128 x 128
+                nn.Conv2d(nc, ndf, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+                nn.BatchNorm2d(ndf),
+                nn.LeakyReLU(0.2, inplace=True),
+                # input is ndf x 64 x 64
+                nn.Conv2d(ndf, ndf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+                nn.BatchNorm2d(ndf),
+                nn.LeakyReLU(0.2, inplace=True),
+
+                # input is ndf x 64 x 64
+                nn.Conv2d(ndf, ndf, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
+                nn.BatchNorm2d(ndf),
+                nn.LeakyReLU(0.2, inplace=True),
+                # input is ndf x 32 x 32
+                nn.Conv2d(ndf, ndf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+                nn.BatchNorm2d(ndf),
+                nn.LeakyReLU(0.2, inplace=True),
+            )
+
+
 
         self.discblock1 = nn.Sequential(
             nn.Conv2d(ndf, ndf*2, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
@@ -179,14 +220,15 @@ class cont_cond_cnn_discriminator(nn.Module):
         # self.linear2 = nn.Linear(label_width_d, 1, bias=bias)
         # self.sigmoid = nn.Sigmoid()
 
-        # self.linear1 = nn.Linear(ndf*8*4*4, 1, bias=bias)
-        # self.linear2 = nn.Linear(label_width_d, ndf*8*4*4, bias=bias)
-        # self.sigmoid = nn.Sigmoid()
+        self.linear1 = nn.Linear(ndf*8*4*4, 1, bias=bias)
+        self.linear2 = nn.Linear(label_width_d, ndf*8, bias=bias)
+        ## self.linear2 = nn.Linear(label_width_d, ndf*8*4*4, bias=bias)
+        self.sigmoid = nn.Sigmoid()
 
-        self.linear = nn.Sequential(
-            nn.Linear(ndf*8*4*4, 1, bias=bias),
-            nn.Sigmoid()
-        )
+        # self.linear = nn.Sequential(
+        #     nn.Linear(ndf*8*4*4, 1, bias=bias),
+        #     nn.Sigmoid()
+        # )
 
     def forward(self, x, y):
         y = y.view(-1,1)
@@ -201,12 +243,12 @@ class cont_cond_cnn_discriminator(nn.Module):
         # output2 = self.linear2(y.repeat(1, label_width_d))
         # output = self.sigmoid(output1+output2)
 
-        # output = output.view(-1, self.ndf*8*4*4)
-        # output_y = torch.sum(output*self.linear2(y.repeat(1, label_width_d)), 1)
-        # output = self.sigmoid(self.linear1(output) + output_y)
-
+        output_y = torch.sum(torch.sum(output, axis=(2, 3))*self.linear2(y.repeat(1, label_width_d)), 1, keepdims=True)
         output = output.view(-1, self.ndf*8*4*4)
-        output = output + y.repeat(1,self.ndf*8*4*4)
-        output = self.linear(output)
+        output = self.sigmoid(self.linear1(output) + output_y)
+
+        # output = output.view(-1, self.ndf*8*4*4)
+        # output = output + y.repeat(1,self.ndf*8*4*4)
+        # output = self.linear(output)
 
         return output.view(-1, 1)

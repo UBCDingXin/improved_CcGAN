@@ -22,7 +22,7 @@ echo "##########################################################################
 echo "                         Pre-train a CNN for evaluation                                 "
 echo "########################################################################################"
 # CUDA_VISIBLE_DEVICES=1,0 python3 pretrain_CNN_regre.py --CNN ResNet34_regre --epochs $EPOCH_CNN --batch_size_train 256 --batch_size_valid 64 --base_lr 0.01 --seed $SEED --img_size $IMG_SIZE
-# CUDA_VISIBLE_DEVICES=1,0 python3 pretrain_CNN_regre.py --CNN ResNet34_regre --epochs $EPOCH_CNN --batch_size_train 256 --batch_size_valid 64 --base_lr 0.01 --seed $SEED --img_size $IMG_SIZE --CVMode
+CUDA_VISIBLE_DEVICES=0 python3 pretrain_CNN_regre.py --CNN ResNet34_regre --epochs $EPOCH_CNN --batch_size_train 256 --batch_size_valid 64 --base_lr 0.01 --seed $SEED --img_size $IMG_SIZE --CVMode
 # #
 # CUDA_VISIBLE_DEVICES=1,0 python3 pretrain_CNN_class.py --CNN ResNet34_class --epochs $EPOCH_CNN --batch_size_train 256 --batch_size_valid 64 --base_lr 0.01 --seed $SEED --num_classes 20 --img_size $IMG_SIZE
 # CUDA_VISIBLE_DEVICES=1,0 python3 pretrain_CNN_class.py --CNN ResNet34_class --epochs $EPOCH_CNN --batch_size_train 256 --batch_size_valid 64 --base_lr 0.01 --seed $SEED --num_classes 20 --img_size $IMG_SIZE --CVMode
@@ -46,9 +46,9 @@ echo "##########################################################################
 echo "                                 ContSAGAN                                      "
 echo "########################################################################################"
 
-echo "-------------------------------------------------------------------------------------------------"
-echo "Continuous cDCGAN"
-CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN ContcDCGAN --seed $SEED --img_size $IMG_SIZE --max_num_img_per_label $MAX_N_IMG_PER_LABEL --threshold_type hard --kernel_sigma -1.0 --kappa -1.0 --epoch_gan $EPOCH_GAN --lr_g_gan $LR_G --lr_d_gan $LR_D --batch_size_gan $BATCH_SIZE --nfake $NFAKE  --visualize_fake_images #--comp_LS --comp_FID --epoch_FID_CNN $EPOCH_CNN --resumeTrain_gan 0
+# echo "-------------------------------------------------------------------------------------------------"
+# echo "Continuous cDCGAN"
+# CUDA_VISIBLE_DEVICES=1,0 python3 main.py --GAN ContcDCGAN --seed $SEED --img_size $IMG_SIZE --max_num_img_per_label $MAX_N_IMG_PER_LABEL --threshold_type hard --kernel_sigma -1.0 --kappa -1.0 --epoch_gan $EPOCH_GAN --lr_g_gan $LR_G --lr_d_gan $LR_D --batch_size_gan $BATCH_SIZE --nfake $NFAKE  --visualize_fake_images #--comp_LS --comp_FID --epoch_FID_CNN $EPOCH_CNN --resumeTrain_gan 0
 #
 # echo "-------------------------------------------------------------------------------------------------"
 # echo "Continuous cDCGAN"

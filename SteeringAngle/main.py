@@ -79,7 +79,7 @@ parser.add_argument('--comp_FID', action='store_true', default=False)
 parser.add_argument('--epoch_FID_CNN', type=int, default=200)
 parser.add_argument('--comp_LS', action='store_true', default=False)
 parser.add_argument('--num_eval_labels', type=int, default=1000)
-parser.add_argument('--FID_num_classes', type=int, default=100)
+parser.add_argument('--FID_num_classes', type=int, default=20)
 
 args = parser.parse_args()
 
@@ -94,7 +94,7 @@ IMG_SIZE = args.img_size
 NGPU = torch.cuda.device_count()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 NCPU = multiprocessing.cpu_count()
-cudnn.benchmark = True # For fast training
+
 
 #-------------------------------
 # GAN
@@ -111,6 +111,7 @@ samp_batch_size = args.samp_batch_size #batch size for sampling from GAN or enha
 random.seed(args.seed)
 torch.manual_seed(args.seed)
 torch.backends.cudnn.deterministic = True
+cudnn.benchmark = False
 np.random.seed(args.seed)
 
 #-------------------------------
@@ -136,11 +137,36 @@ images = hf['images'][:]
 hf.close()
 
 # remove too small angles and too large angles
-q1 = np.quantile(labels, q=0.010)
-q2 = np.quantile(labels, q=0.990)
+q1 = np.quantile(labels, q=0.005)
+q2 = np.quantile(labels, q=0.995)
 indx = np.where((labels>q1)*(labels<q2)==True)[0]
 labels = labels[indx]
 images = images[indx]
+assert len(labels)==len(images)
+
+### show some real  images
+if args.show_real_imgs:
+    unique_labels_show = np.array(sorted(list(set(labels))))
+    indx_show = np.arange(0, len(unique_labels_show), len(unique_labels_show)//9)
+    unique_labels_show = unique_labels_show[indx_show]
+    nrow = len(unique_labels_show); ncol = 1
+    # images_show = np.zeros((nrow*ncol, images.shape[1], images.shape[2], images.shape[3]))
+    sel_labels_indx = []
+    for i in range(nrow):
+        curr_label = unique_labels_show[i]
+        indx_curr_label = np.where(labels==curr_label)[0][0:ncol]
+        sel_labels_indx.extend(list(indx_curr_label))
+        # for j in range(ncol):
+        #     # print(indx_curr_label[j])
+        #     # print(images.shape)
+        #     images_show[i*ncol+j,:,:,:] = images[indx_curr_label[j]]
+    sel_labels_indx = np.array(sel_labels_indx)
+    images_show = images[sel_labels_indx]
+    print(images_show.mean())
+    images_show = (images_show/255.0-0.5)/0.5
+    images_show = torch.from_numpy(images_show)
+    save_image(images_show.data, save_images_folder +'/real_images_grid_{}x{}.png'.format(nrow, ncol), nrow=ncol, normalize=True)
+
 
 # for each angle, take no more than 500 images
 image_num_threshold = args.max_num_img_per_label
@@ -168,22 +194,6 @@ num_bins = 100
 plt.figure()
 plt.hist(labels, num_bins, facecolor='blue', density=False)
 plt.savefig(hist_filename)
-
-
-### show some real  images
-if args.show_real_imgs:
-    unique_labels_show = sorted(list(set(labels)))
-    nrow = len(unique_labels_show); ncol = 10
-    images_show = np.zeros((nrow*ncol, images.shape[1], images.shape[2], images.shape[3]))
-    for i in range(nrow):
-        curr_label = unique_labels_show[i]
-        indx_curr_label = np.where(labels==curr_label)[0][0:ncol]
-        for j in range(ncol):
-            images_show[i*ncol+j,:,:,:] = images[indx_curr_label[j]]
-    print(images_show.shape)
-    images_show = (images_show/255.0-0.5)/0.5
-    images_show = torch.from_numpy(images_show)
-    save_image(images_show.data, save_images_folder +'/real_images_grid_{}x{}.png'.format(nrow, ncol), nrow=ncol, normalize=True)
 
 
 # normalize labels
@@ -330,8 +340,8 @@ if args.GAN == "cDCGAN":
 if args.GAN == "ContcDCGAN":
     Filename_GAN = save_models_folder + '/ckpt_' + args.GAN + '_epoch_' + str(args.epoch_gan) + '_SEED_' + str(args.seed) + '_' + args.threshold_type + '_' + str(args.kernel_sigma) + '_size_{}x{}'.format(args.img_size, args.img_size) + '_' + str(args.kappa)
     if not os.path.isfile(Filename_GAN):
-        netG = cont_cond_cnn_generator(nz=args.dim_gan).to(device)
-        netD = cont_cond_cnn_discriminator(use_sigmoid = True).to(device)
+        netG = cont_cond_cnn_generator(nz=args.dim_gan, img_size=IMG_SIZE).to(device)
+        netD = cont_cond_cnn_discriminator(img_size=IMG_SIZE).to(device)
         if args.resumeTrain_gan==0:
             netG.apply(weights_init)
             netD.apply(weights_init)
@@ -359,7 +369,7 @@ if args.GAN == "ContcDCGAN":
         netG.load_state_dict(checkpoint['netG_state_dict'])
 
     def fn_sampleGAN_given_label(nfake, label, batch_size):
-        fake_images, fake_labels = SampCcGAN_given_label(netG, label, path=None, dim_GAN = args.dim_gan, NFAKE = nfake, batch_size = batch_size, device=device)
+        fake_images, fake_labels = SampCcGAN_given_label(netG, label, path=None, img_size = IMG_SIZE, dim_GAN = args.dim_gan, NFAKE = nfake, batch_size = batch_size, device=device)
         return fake_images, fake_labels
 
 stop = timeit.default_timer()
@@ -447,6 +457,22 @@ if args.visualize_fake_images:
     images_show = torch.from_numpy(images_show)
     print(n_row)
     save_image(images_show.data, filename_fake_images, nrow=n_col, normalize=True)
+
+    # ### output some real images as baseline
+    # filename_real_images = save_images_folder + '/real_images_grid_{}x{}.png'.format(n_row, n_col)
+    # if not os.path.isfile(filename_real_images):
+    #     images_show = np.zeros((n_row*n_col, images.shape[1], images.shape[2], images.shape[3]))
+    #     for i_row in range(n_row):
+    #         for j_col in range(n_col):
+    #             curr_label = displayed_cellcounts[j_col]
+    #             indx_curr_label = np.where(raw_counts==curr_label)[0]
+    #             np.random.shuffle(indx_curr_label)
+    #             indx_curr_label = indx_curr_label[0]
+    #             images_show[i_row*n_col+j_col] = raw_images[indx_curr_label]
+    #     images_show = (images_show/255.0-0.5)/0.5
+    #     images_show = torch.from_numpy(images_show)
+    #     save_image(images_show.data, filename_real_images, nrow=n_col, normalize=True)
+
 
     # # First, visualize conditional generation
     # ## 3 rows (3 samples); 10 columns

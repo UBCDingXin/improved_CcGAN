@@ -104,7 +104,8 @@ class ResNet_regre(nn.Module):
                 nn.BatchNorm1d(128),
                 nn.ReLU(),
                 nn.Linear(128, 1),
-                nn.Sigmoid()
+                # nn.Sigmoid()
+                nn.ReLU()
             ]
         self.linear = nn.Sequential(*linear_layers)
 

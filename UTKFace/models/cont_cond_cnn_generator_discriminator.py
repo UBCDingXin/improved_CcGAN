@@ -11,8 +11,8 @@ import torch.nn.functional as F
 
 NC=3
 
-label_width_g = 32
-label_width_d = 32
+label_width_g = 1
+label_width_d = 1
 
 
 default_bias = False
@@ -116,9 +116,7 @@ class cont_cond_cnn_generator(nn.Module):
         # output2 = self.linear2(y.repeat(1, label_width_g))
         # output_img = (output1+output2).view(-1, 8*self.ngf, 4, 4)
 
-        output_img = self.linear(z).view(-1, 8*self.ngf, 4, 4) #+ y.repeat(1,self.ngf*8*4*4).view(-1, self.ngf*8, 4, 4)
-        # print((output_img.min().item(), output_img.max().item()))
-        output_img += y.repeat(1,self.ngf*8*4*4).view(-1, self.ngf*8, 4, 4)
+        output_img = self.linear(z).view(-1, 8*self.ngf, 4, 4) + y.repeat(1,self.ngf*8*4*4).view(-1, self.ngf*8, 4, 4)
 
         output_img = self.genblock1(output_img) #+ y.repeat(1,self.ngf*8*8*8).view(-1, self.ngf*8, 8, 8)
         # output_img = self_act_conv(output_img, y)
@@ -188,14 +186,15 @@ class cont_cond_cnn_discriminator(nn.Module):
         # self.linear2 = nn.Linear(label_width_d, 1, bias=True)
         # self.sigmoid = nn.Sigmoid()
 
-        # self.linear1 = nn.Linear(ndf*8*4*4, 1, bias=bias)
-        # self.linear2 = nn.Linear(label_width_d, ndf*8*4*4, bias=bias)
-        # self.sigmoid = nn.Sigmoid()
+        self.linear1 = nn.Linear(ndf*8*4*4, 1, bias=bias)
+        self.linear2 = nn.Linear(label_width_d, ndf*8, bias=bias)
+        ## self.linear2 = nn.Linear(label_width_d, ndf*8*4*4, bias=bias)
+        self.sigmoid = nn.Sigmoid()
 
-        self.linear = nn.Sequential(
-            nn.Linear(ndf*8*4*4, 1, bias=bias),
-            nn.Sigmoid()
-        )
+        # self.linear = nn.Sequential(
+        #     nn.Linear(ndf*8*4*4, 1, bias=bias),
+        #     nn.Sigmoid()
+        # )
 
     def forward(self, x, y):
         y = y.view(-1,1)
@@ -210,12 +209,12 @@ class cont_cond_cnn_discriminator(nn.Module):
         # output2 = self.linear2(y.repeat(1, label_width_d))
         # output = self.sigmoid(output1+output2)
 
-        # output = output.view(-1, self.ndf*8*4*4)
-        # output_y = torch.sum(output*self.linear2(y.repeat(1, label_width_d)), 1)
-        # output = self.sigmoid(self.linear1(output) + output_y)
-
+        output_y = torch.sum(torch.sum(output, axis=(2, 3))*self.linear2(y.repeat(1, label_width_d)), 1, keepdims=True)
         output = output.view(-1, self.ndf*8*4*4)
-        output = output + y.repeat(1,self.ndf*8*4*4)
-        output = self.linear(output)
+        output = self.sigmoid(self.linear1(output) + output_y)
+
+        # output = output.view(-1, self.ndf*8*4*4)
+        # output = output + y.repeat(1,self.ndf*8*4*4)
+        # output = self.linear(output)
 
         return output.view(-1, 1)
