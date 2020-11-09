@@ -15,7 +15,7 @@ IMGSg: fake images
 
 """
 
-
+import os
 import gc
 import numpy as np
 # from numpy import linalg as LA
@@ -24,8 +24,9 @@ import torch
 import torch.nn as nn
 from scipy.stats import entropy
 from torch.nn import functional as F
+from torchvision.utils import save_image
 
-from utils import SimpleProgressBar
+from utils import SimpleProgressBar, IMGs_dataset
 
 
 
@@ -89,7 +90,8 @@ def cal_FID(PreNetFID, IMGSr, IMGSg, batch_size = 500, resize = None):
         test_img = torch.from_numpy(IMGSr[0].reshape((1,nc,img_size,img_size))).type(torch.float).cuda()
         if resize is not None:
             test_img = nn.functional.interpolate(test_img, size = resize, scale_factor=None, mode='bilinear', align_corners=False)
-        _, test_features = PreNetFID(test_img)
+        # _, test_features = PreNetFID(test_img)
+        test_features = PreNetFID(test_img)
         d = test_features.shape[1] #length of extracted features
 
     Xr = np.zeros((nr, d))
@@ -100,26 +102,30 @@ def cal_FID(PreNetFID, IMGSr, IMGSg, batch_size = 500, resize = None):
         tmp = 0
         pb1 = SimpleProgressBar()
         for i in range(nr//batch_size):
-            pb1.update(float(i)*100/(nr//batch_size))
             imgr_tensor = torch.from_numpy(IMGSr[tmp:(tmp+batch_size)]).type(torch.float).cuda()
             if resize is not None:
                 imgr_tensor = nn.functional.interpolate(imgr_tensor, size = resize, scale_factor=None, mode='bilinear', align_corners=False)
-            _, Xr_tmp = PreNetFID(imgr_tensor)
+            # _, Xr_tmp = PreNetFID(imgr_tensor)
+            Xr_tmp = PreNetFID(imgr_tensor)
             Xr[tmp:(tmp+batch_size)] = Xr_tmp.detach().cpu().numpy()
             tmp+=batch_size
+            # pb1.update(min(float(i)*100/(nr//batch_size), 100))
+            pb1.update(min(max(tmp/nr*100,100), 100))
         del Xr_tmp,imgr_tensor; gc.collect()
         torch.cuda.empty_cache()
 
         tmp = 0
         pb2 = SimpleProgressBar()
         for j in range(ng//batch_size):
-            pb2.update(float(j)*100/(ng//batch_size))
             imgg_tensor = torch.from_numpy(IMGSg[tmp:(tmp+batch_size)]).type(torch.float).cuda()
             if resize is not None:
                 imgg_tensor = nn.functional.interpolate(imgg_tensor, size = resize, scale_factor=None, mode='bilinear', align_corners=False)
-            _, Xg_tmp = PreNetFID(imgg_tensor)
+            # _, Xg_tmp = PreNetFID(imgg_tensor)
+            Xg_tmp = PreNetFID(imgg_tensor)
             Xg[tmp:(tmp+batch_size)] = Xg_tmp.detach().cpu().numpy()
             tmp+=batch_size
+            # pb2.update(min(float(j)*100/(ng//batch_size), 100))
+            pb2.update(min(max(tmp/ng*100, 100), 100))
         del Xg_tmp,imgg_tensor; gc.collect()
         torch.cuda.empty_cache()
 
@@ -137,13 +143,14 @@ def cal_FID(PreNetFID, IMGSr, IMGSg, batch_size = 500, resize = None):
 # label_score
 # difference between assigned label and predicted label
 ##############################################################################
-def cal_labelscore(PreNet, images, labels_assi, batch_size = 500, resize = None):
+def cal_labelscore(PreNet, images, labels_assi, min_label_before_shift, max_label_after_shift, batch_size = 500, resize = None):
     '''
     PreNet: pre-trained CNN
     images: fake images
     labels_assi: assigned labels
     resize: if None, do not resize; if resize = (H,W), resize images to 3 x H x W
     '''
+
     PreNet.eval()
 
     # assume images are nxncximg_sizeximg_size
@@ -152,21 +159,33 @@ def cal_labelscore(PreNet, images, labels_assi, batch_size = 500, resize = None)
     img_size = images.shape[2]
     labels_assi = labels_assi.reshape(-1)
 
-    # predict labels
-    labels_pred = np.zeros(n)
-    with torch.no_grad():
-        tmp = 0
-        pb = SimpleProgressBar()
-        for i in range(n//batch_size):
-            pb.update(float(i)*100/(n//batch_size))
-            image_tensor = torch.from_numpy(images[tmp:(tmp+batch_size)]).type(torch.float).cuda()
-            if resize is not None:
-                image_tensor = nn.functional.interpolate(image_tensor, size = resize, scale_factor=None, mode='bilinear', align_corners=False)
-            labels_batch, _ = PreNet(image_tensor)
-            labels_pred[tmp:(tmp+batch_size)] = labels_batch.detach().cpu().numpy().reshape(-1)
-            tmp+=batch_size
-        del image_tensor; gc.collect()
+    eval_trainset = IMGs_dataset(images, labels_assi, normalize=False)
+    eval_dataloader = torch.utils.data.DataLoader(eval_trainset, batch_size=batch_size, shuffle=False, num_workers=8)
+
+    labels_pred = np.zeros(n+batch_size)
+
+    nimgs_got = 0
+    pb = SimpleProgressBar()
+    for batch_idx, (batch_images, batch_labels) in enumerate(eval_dataloader):
+        batch_images = batch_images.type(torch.float).cuda()
+        batch_labels = batch_labels.type(torch.float).cuda()
+        batch_size_curr = len(batch_labels)
+
+        batch_labels_pred, _ = PreNet(batch_images)
+        labels_pred[nimgs_got:(nimgs_got+batch_size_curr)] = batch_labels_pred.detach().cpu().numpy().reshape(-1)
+
+        nimgs_got += batch_size_curr
+        pb.update((float(nimgs_got)/n)*100)
+
+        del batch_images; gc.collect()
         torch.cuda.empty_cache()
+    #end for batch_idx
+
+    labels_pred = labels_pred[0:n]
+
+
+    labels_pred = (labels_pred*max_label_after_shift)-np.abs(min_label_before_shift)
+    labels_assi = (labels_assi*max_label_after_shift)-np.abs(min_label_before_shift)
 
     ls_mean = np.mean(np.abs(labels_pred-labels_assi))
     ls_std = np.std(np.abs(labels_pred-labels_assi))

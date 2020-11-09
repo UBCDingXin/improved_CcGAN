@@ -4,12 +4,8 @@ Pre-train a CNN on the whole dataset for evaluation purpose
 
 """
 import os
-wd = '/home/xin/OneDrive/Working_directory/Continuous_cGAN/SteeringAngle'
-
 import argparse
 import shutil
-import os
-os.chdir(wd)
 import timeit
 import torch
 import torchvision
@@ -36,7 +32,8 @@ from utils import IMGs_dataset
 #############################
 
 parser = argparse.ArgumentParser(description='Pre-train CNNs')
-parser.add_argument('--num_classes', type=int, default=50, metavar='N') #split angles into num_classes classes.
+parser.add_argument('--root_path', type=str, default='')
+parser.add_argument('--data_path', type=str, default='')
 parser.add_argument('--CNN', type=str, default='ResNet34_class',
                     help='CNN for training; ResNetXX')
 parser.add_argument('--epochs', type=int, default=200, metavar='N',
@@ -53,10 +50,18 @@ parser.add_argument('--seed', type=int, default=2020, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--CVMode', action='store_true', default=False,
                     help='CV mode?')
-parser.add_argument('--n_valid_img_per_class', type=int, default=2, metavar='N')
+parser.add_argument('--valid_proport', type=float, default=0.1,
+                    help='Proportion of validation samples')
 parser.add_argument('--img_size', type=int, default=64, metavar='N')
+# parser.add_argument('--min_angle', type=float, default=0.0)
+# parser.add_argument('--max_angle', type=float, default=90.0)
 args = parser.parse_args()
 
+
+wd = args.root_path
+os.chdir(wd)
+from models import *
+from utils import IMGs_dataset
 
 # cuda
 device = torch.device("cuda")
@@ -69,56 +74,38 @@ torch.backends.cudnn.deterministic = True
 np.random.seed(args.seed)
 
 # directories for checkpoint, images and log files
-save_models_folder = wd + '/Output/saved_models/'
+save_models_folder = wd + '/output/saved_models/'
 os.makedirs(save_models_folder, exist_ok=True)
 
-save_logs_folder = wd + '/Output/saved_logs/'
+save_logs_folder = wd + '/output/saved_logs/'
 os.makedirs(save_logs_folder, exist_ok=True)
 
 
 # data loader
-data_filename = wd+'/data/SteeringAngle_' + str(args.img_size) + 'x' + str(args.img_size) + '.h5'
+data_filename = args.data_path + '/SteeringAngle_5_scenes_64x64.h5'
 hf = h5py.File(data_filename, 'r')
-labels = hf['labels'][:]
-labels = labels.astype(np.float)
 images = hf['images'][:]
+labels = hf['labels'][:]
 hf.close()
+num_classes = len(set(labels))
+print("\n There are {} classes...".format(num_classes))
+assert len(labels)==len(images)
 
-N_all = len(images)
-assert len(images)==len(labels)
-unique_labels = np.sort(np.array(list(set(labels))))
-num_unique_labels = len(unique_labels)
-print("{} unique labels are split into {} classes".format(num_unique_labels, args.num_classes))
-
-## convert steering angles to class labels
-label2class = dict()
-num_labels_per_class = num_unique_labels//args.num_classes
-curr_class = 0
-for i in range(num_unique_labels):
-    label2class[unique_labels[i]]=curr_class
-    if (i+1)%num_labels_per_class==0 and (curr_class+1)!=args.num_classes:
-        curr_class += 1
-
-labels_new = -1*np.ones(N_all)
-for i in range(N_all):
-    labels_new[i] = label2class[labels[i]]
-assert np.sum(labels_new<0)==0
-labels = labels_new
-del labels_new; gc.collect()
-assert len(list(set(labels))) == args.num_classes
 
 
 # define training (and validaiton) set
 if args.CVMode:
-    for i in range(args.num_classes):
+    for i in range(num_classes):
         indx_i = np.where(labels==i)[0] #i-th class
         np.random.shuffle(indx_i)
+        num_imgs_all_i = len(indx_i)
+        num_imgs_valid_i = int(num_imgs_all_i*args.valid_proport)
         if i == 0:
-            indx_valid = indx_i[0:args.n_valid_img_per_class]
-            indx_train = indx_i[args.n_valid_img_per_class:]
+            indx_valid = indx_i[0:num_imgs_valid_i]
+            indx_train = indx_i[num_imgs_valid_i:]
         else:
-            indx_valid = np.concatenate((indx_valid, indx_i[0:args.n_valid_img_per_class]))
-            indx_train = np.concatenate((indx_train, indx_i[args.n_valid_img_per_class:]))
+            indx_valid = np.concatenate((indx_valid, indx_i[0:num_imgs_valid_i]))
+            indx_train = np.concatenate((indx_train, indx_i[num_imgs_valid_i:]))
     #end for i
     trainset = IMGs_dataset(images[indx_train], labels[indx_train], normalize=True)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size_train, shuffle=True, num_workers=8)
@@ -129,12 +116,13 @@ else:
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size_train, shuffle=True, num_workers=8)
 
 
+
 ###########################################################################################################
 # Necessary functions
 ###########################################################################################################
 
 #initialize CNNs
-def net_initialization(Pretrained_CNN_Name, ngpu = 1, num_classes=args.num_classes):
+def net_initialization(Pretrained_CNN_Name, ngpu = 1, num_classes=num_classes):
     if Pretrained_CNN_Name == "ResNet18_class":
         net = ResNet18_class(num_classes=num_classes, ngpu = ngpu)
     elif Pretrained_CNN_Name == "ResNet34_class":
@@ -166,6 +154,7 @@ def adjust_learning_rate(optimizer, epoch, BASE_LR_CNN):
 
 def train_CNN():
 
+    start_tmp = timeit.default_timer()
     for epoch in range(args.epochs):
         net.train()
         train_loss = 0
@@ -192,9 +181,9 @@ def train_CNN():
 
         if args.CVMode:
             valid_acc = valid_CNN(verbose=False)
-            print('CNN: [epoch %d/%d] train_loss:%f valid_acc:%f' % (epoch+1, args.epochs, train_loss, valid_acc))
+            print('CNN: [epoch %d/%d] train_loss:%f valid_acc:%f Time: %.4f' % (epoch+1, args.epochs, train_loss, valid_acc, timeit.default_timer()-start_tmp))
         else:
-            print('CNN: [epoch %d/%d] train_loss:%f' % (epoch+1, args.epochs, train_loss))
+            print('CNN: [epoch %d/%d] train_loss:%f Time: %.4f' % (epoch+1, args.epochs, train_loss, timeit.default_timer()-start_tmp))
     #end for epoch
 
     return net, optimizer
@@ -223,11 +212,11 @@ if args.CVMode:
 # Training and Testing
 ###########################################################################################################
 # model initialization
-net, net_name = net_initialization(args.CNN, ngpu = ngpu, num_classes = args.num_classes)
+net, net_name = net_initialization(args.CNN, ngpu = ngpu, num_classes = num_classes)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(net.parameters(), lr = args.base_lr, momentum= 0.9, weight_decay=args.weight_dacay)
 
-filename_ckpt = save_models_folder + '/ckpt_' + net_name + '_epoch_' + str(args.epochs) +  '_SEED_' + str(args.seed) + '_img_size_' + str(args.img_size) + '_num_classes_' + str(args.num_classes) + '_CVMode_' + str(args.CVMode)
+filename_ckpt = save_models_folder + '/ckpt_{}_epoch_{}_seed_{}_classify_{}_scenes_CVMode_{}.pth'.format(net_name, args.epochs, args.seed, num_classes, args.CVMode)
 
 # training
 if not os.path.isfile(filename_ckpt):
@@ -244,6 +233,8 @@ if not os.path.isfile(filename_ckpt):
 else:
     print("\n Ckpt already exists")
     print("\n Loading...")
+    checkpoint = torch.load(filename_ckpt)
+    net.load_state_dict(checkpoint['net_state_dict'])
 torch.cuda.empty_cache()#release GPU mem which is  not references
 
 if args.CVMode:

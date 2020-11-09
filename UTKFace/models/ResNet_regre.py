@@ -1,9 +1,4 @@
 '''
-ResNet-based model to map an image from pixel space to a features space.
-Need to be pretrained on the dataset.
-
-if isometric_map = True, there is an extra step (elf.classifier_1 = nn.Linear(512, 32*32*3)) to increase the dimension of the feature map from 512 to 32*32*3. This selection is for desity-ratio estimation in feature space.
-
 codes are based on
 @article{
 zhang2018mixup,
@@ -83,18 +78,18 @@ class ResNet_regre(nn.Module):
         self.in_planes = 64
         self.ngpu = ngpu
 
-        self.main = nn.Sequential(
+        self.block1 = nn.Sequential(
             nn.Conv2d(nc, 64, kernel_size=3, stride=1, padding=1, bias=False),  # h=h
-            # nn.Conv2d(nc, 64, kernel_size=4, stride=2, padding=1, bias=False),  # h=h/2
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            # self._make_layer(block, 64, num_blocks[0], stride=1),  # h=h
             self._make_layer(block, 64, num_blocks[0], stride=2),  # h=h/2 32
-            self._make_layer(block, 128, num_blocks[1], stride=2), # h=h/2 16
-            self._make_layer(block, 256, num_blocks[2], stride=2), # h=h/2 8
-            self._make_layer(block, 512, num_blocks[3], stride=2), # h=h/2 4
-            nn.AvgPool2d(kernel_size=4)
         )
+        self.block2 = self._make_layer(block, 128, num_blocks[1], stride=2) # h=h/2 16
+        self.block3 = self._make_layer(block, 256, num_blocks[2], stride=2) # h=h/2 8
+        self.block4 = self._make_layer(block, 512, num_blocks[3], stride=2) # h=h/2 4
+
+        self.pool1 = nn.AvgPool2d(kernel_size=4)
+        self.pool2 = nn.AdaptiveAvgPool2d((1,1))
 
         linear_layers = [
                 nn.Linear(512*block.expansion, 128),
@@ -105,12 +100,10 @@ class ResNet_regre(nn.Module):
                 nn.ReLU(),
                 nn.Linear(128, 1),
                 # nn.Sigmoid()
-                nn.ReLU()
+                nn.ReLU(),
             ]
         self.linear = nn.Sequential(*linear_layers)
 
-        # self.linear = nn.Sequential(nn.Linear(512*block.expansion, 1),
-        #                             nn.ReLU())
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -123,14 +116,31 @@ class ResNet_regre(nn.Module):
     def forward(self, x):
 
         if x.is_cuda and self.ngpu > 1:
-            features = nn.parallel.data_parallel(self.main, x, range(self.ngpu))
-            features = features.view(features.size(0), -1)
-            out = nn.parallel.data_parallel(self.linear, features, range(self.ngpu))
+            ft1 = nn.parallel.data_parallel(self.block1, x, range(self.ngpu))
+            ft2 = nn.parallel.data_parallel(self.block2, ft1, range(self.ngpu))
+            ft3 = nn.parallel.data_parallel(self.block3, ft2, range(self.ngpu))
+            ft4 = nn.parallel.data_parallel(self.block4, ft3, range(self.ngpu))
+            out = nn.parallel.data_parallel(self.pool1, ft4, range(self.ngpu))
+            out = out.view(out.size(0), -1)
+            out = nn.parallel.data_parallel(self.linear, out, range(self.ngpu))
         else:
-            features = self.main(x)
-            features = features.view(features.size(0), -1)
-            out = self.linear(features)
-        return out, features
+            ft1 = self.block1(x)
+            ft2 = self.block2(ft1)
+            ft3 = self.block3(ft2)
+            ft4 = self.block4(ft3)
+            out = self.pool1(ft4)
+            out = out.view(out.size(0), -1)
+            out = self.linear(out)
+
+        # ext_features = self.pool1(ft4) #reduce the dim so that computing FID won't too long
+        # # ext_features = torch.mean(ft4, (2,3)) #reduce the dim so that computing FID won't too long
+        # ext_features = ext_features.view(ext_features.size(0), -1)
+
+        ## use f3 feature
+        ext_features = self.pool2(ft3)
+        ext_features = ext_features.view(ext_features.size(0), -1)
+
+        return out, ext_features
 
 
 def ResNet18_regre(ngpu = 1):

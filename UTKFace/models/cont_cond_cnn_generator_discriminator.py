@@ -1,220 +1,209 @@
 '''
+https://github.com/christiancosgrove/pytorch-spectral-normalization-gan
 
-based on the CNN structure in "Spectral normalization for generator adversarial networks"
-
+chainer: https://github.com/pfnet-research/sngan_projection
 '''
+
+# ResNet generator and discriminator
 import torch
-import torch.nn as nn
-import numpy as np
-from torch.nn.utils import spectral_norm
+from torch import nn
 import torch.nn.functional as F
 
-NC=3
-
-label_width_g = 1
-label_width_d = 1
-
-
-default_bias = False
-
-def self_act_conv(x, y):
-    '''
-    x is a tensor: NxCxWxH
-    y is Nx1
-    '''
-    # y = torch.exp(y)
-    C = x.shape[1]; W = x.shape[2]; H = x.shape[3]
-    y = y.view(-1,1).repeat(1, C*W*H).view(-1, C, W, H)
-    output = F.relu(x) + 0.3*y*F.relu(-x)
-    # output = y**(-1) * torch.log(1+torch.exp(y*x))
-    return output
-
-def self_act_fc(x, y):
-    '''
-    x is a tensor: NxL
-    y is Nx1
-    '''
-    # y = torch.exp(y)
-    L = x.shape[1]
-    y = y.view(-1,1).repeat(1, L)
-    output = F.relu(x) + 0.3*y*F.relu(-x)
-    # output = y**(-1) * torch.log(1+torch.exp(y*x))
-    return output
+# from spectral_normalization import SpectralNorm
+import numpy as np
+from torch.nn.utils import spectral_norm
 
 
-#########################################################
-# genearator
+
+channels = 3
+
+class ResBlockGenerator(nn.Module):
+
+    def __init__(self, in_channels, out_channels, bias=True):
+        super(ResBlockGenerator, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, 1, padding=1, bias=bias)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, 1, padding=1, bias=bias)
+        nn.init.xavier_uniform_(self.conv1.weight.data, np.sqrt(2))
+        nn.init.xavier_uniform_(self.conv2.weight.data, np.sqrt(2))
+
+        self.model = nn.Sequential(
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(),
+            nn.Upsample(scale_factor=2),
+            self.conv1,
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(),
+            self.conv2
+            )
+
+        self.bypass_conv = nn.Conv2d(in_channels,out_channels, 1, 1, padding=0, bias=bias) #h=h
+        nn.init.xavier_uniform_(self.bypass_conv.weight.data, 1.0)
+        self.bypass = nn.Sequential(
+            nn.Upsample(scale_factor=2),
+            self.bypass_conv,
+        )
+
+    def forward(self, x):
+        return self.model(x) + self.bypass(x)
+
+
+class ResBlockDiscriminator(nn.Module):
+
+    def __init__(self, in_channels, out_channels, stride=1, bias=True):
+        super(ResBlockDiscriminator, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, 1, padding=1, bias=bias)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, 1, padding=1, bias=bias)
+        nn.init.xavier_uniform_(self.conv1.weight.data, np.sqrt(2))
+        nn.init.xavier_uniform_(self.conv2.weight.data, np.sqrt(2))
+
+        if stride == 1:
+            self.model = nn.Sequential(
+                nn.ReLU(),
+                spectral_norm(self.conv1),
+                nn.ReLU(),
+                spectral_norm(self.conv2)
+                )
+        else:
+            self.model = nn.Sequential(
+                nn.ReLU(),
+                spectral_norm(self.conv1),
+                nn.ReLU(),
+                spectral_norm(self.conv2),
+                nn.AvgPool2d(2, stride=stride, padding=0)
+                )
+
+        self.bypass_conv = nn.Conv2d(in_channels,out_channels, 1, 1, padding=0, bias=bias)
+        nn.init.xavier_uniform_(self.bypass_conv.weight.data, 1.0)
+        if stride != 1:
+            self.bypass = nn.Sequential(
+                spectral_norm(self.bypass_conv),
+                nn.AvgPool2d(2, stride=stride, padding=0)
+            )
+        else:
+            self.bypass = nn.Sequential(
+                spectral_norm(self.bypass_conv),
+            )
+
+    def forward(self, x):
+        return self.model(x) + self.bypass(x)
+
+# special ResBlock just for the first layer of the discriminator
+class FirstResBlockDiscriminator(nn.Module):
+
+    def __init__(self, in_channels, out_channels, stride=1, bias=True):
+        super(FirstResBlockDiscriminator, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, 1, padding=1, bias=bias)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, 1, padding=1, bias=bias)
+        self.bypass_conv = nn.Conv2d(in_channels, out_channels, 1, 1, padding=0, bias=bias)
+        nn.init.xavier_uniform_(self.conv1.weight.data, np.sqrt(2))
+        nn.init.xavier_uniform_(self.conv2.weight.data, np.sqrt(2))
+        nn.init.xavier_uniform_(self.bypass_conv.weight.data, 1.0)
+
+        # we don't want to apply ReLU activation to raw image before convolution transformation.
+        self.model = nn.Sequential(
+            spectral_norm(self.conv1),
+            nn.ReLU(),
+            spectral_norm(self.conv2),
+            nn.AvgPool2d(2)
+            )
+        self.bypass = nn.Sequential(
+            nn.AvgPool2d(2),
+            spectral_norm(self.bypass_conv),
+        )
+
+    def forward(self, x):
+        return self.model(x) + self.bypass(x)
+
+GEN_SIZE=64
+DISC_SIZE=64
+
 class cont_cond_cnn_generator(nn.Module):
-    def __init__(self, nz=128, ngf=64, nc=NC, bias = default_bias):
+    def __init__(self, nz=128):
         super(cont_cond_cnn_generator, self).__init__()
-        self.nz = nz
-        self.ngf =ngf
+        self.z_dim = nz
 
-        # self.linear1 = nn.Linear(nz, 4 * 4 * ngf * 8) #4*4*512
-        # self.linear2 = nn.Linear(label_width_g, 4 * 4 * ngf * 8)
-
-        self.linear = nn.Linear(nz, 4 * 4 * ngf * 8)
-
-        # self.linear = nn.Sequential(
-        #     nn.Linear(nz, 4 * 4 * ngf * 8),
-        #     nn.BatchNorm1d(4 * 4 * ngf * 8),
-        #     # nn.GroupNorm(32, 4 * 4 * ngf * 8),
+        # self.dense = nn.Sequential(
+        #     nn.Linear(self.z_dim, 4 * 4 * (GEN_SIZE*16), bias=True),
+        #     # nn.BatchNorm1d(4 * 4 * (GEN_SIZE*16)),
         #     nn.ReLU()
         # )
+        self.dense = nn.Linear(self.z_dim, 4 * 4 * (GEN_SIZE*16), bias=True)
+        nn.init.xavier_uniform_(self.dense.weight.data, 1.)
+        self.final = nn.Conv2d(GEN_SIZE, channels, 3, stride=1, padding=1, bias=True)
+        nn.init.xavier_uniform_(self.final.weight.data, 1.)
 
-        self.genblock1 = nn.Sequential(
-            # state size: 4 x 4
-            nn.ConvTranspose2d(ngf * 8, ngf * 8, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
-            nn.BatchNorm2d(ngf * 8),
-            nn.ReLU(True),
-            # state size. 8 x 8
-
-            nn.Conv2d(ngf * 8, ngf * 8, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.BatchNorm2d(ngf * 8),
-            nn.ReLU(True),
-        )
-
-        self.genblock2 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 8, ngf * 4, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
-            nn.BatchNorm2d(ngf * 4),
-            nn.ReLU(True),
-            # state size. 16 x 16
-
-            nn.Conv2d(ngf * 4, ngf * 4, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.BatchNorm2d(ngf * 4),
-            nn.ReLU(True),
-        )
-
+        self.genblock1 = ResBlockGenerator((GEN_SIZE*16), (GEN_SIZE*8), bias=True) #4--->8
+        self.genblock2 = ResBlockGenerator((GEN_SIZE*8), (GEN_SIZE*4), bias=True) #8--->16
         self.genblock3 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 4, ngf * 2, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            # state size. 32 x 32
-
-            nn.Conv2d(ngf * 2, ngf * 2, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-        )
-
-        self.genblock4 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 2, ngf, kernel_size=4, stride=2, padding=1, bias=bias), #h=2h
-            nn.BatchNorm2d(ngf),
-            nn.ReLU(True),
-            # state size. 64 x 64
-
-            nn.Conv2d(ngf, nc, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
+            ResBlockGenerator((GEN_SIZE*4), GEN_SIZE*2, bias=True), #16--->32
+            ResBlockGenerator(GEN_SIZE*2, GEN_SIZE, bias=True), #32--->64
+            nn.BatchNorm2d(GEN_SIZE),
+            nn.ReLU(),
+            self.final,
             nn.Tanh()
         )
-
 
     def forward(self, z, y):
         y = y.view(-1,1)
 
-        z = z.view(-1, self.nz)
+        z = z.view(z.size(0), z.size(1))
+        out = self.dense(z) +  y.repeat(1, 4 * 4 * (GEN_SIZE*16))
+        out = out.view(-1, (GEN_SIZE*16), 4, 4)
 
-        # output1 = self.linear1(z)
-        # output2 = self.linear2(y.repeat(1, label_width_g))
-        # output_img = (output1+output2).view(-1, 8*self.ngf, 4, 4)
+        out = self.genblock1(out) #+ y.view(-1, 1).repeat(1,GEN_SIZE*16*8*8).view(-1, GEN_SIZE*16, 8, 8)
+        out = self.genblock2(out) #+ y.view(-1, 1).repeat(1,GEN_SIZE*4*16*16).view(-1, GEN_SIZE*4, 16, 16)
+        out = self.genblock3(out)
 
-        output_img = self.linear(z).view(-1, 8*self.ngf, 4, 4) + y.repeat(1,self.ngf*8*4*4).view(-1, self.ngf*8, 4, 4)
+        return out
 
-        output_img = self.genblock1(output_img) #+ y.repeat(1,self.ngf*8*8*8).view(-1, self.ngf*8, 8, 8)
-        # output_img = self_act_conv(output_img, y)
-
-        output_img = self.genblock2(output_img) #+ y.repeat(1,self.ngf*4*16*16).view(-1, self.ngf*4, 16, 16)
-        # output_img = self_act_conv(output_img, y)
-
-        output_img = self.genblock3(output_img) #+ y.repeat(1,self.ngf*2*32*32).view(-1, self.ngf*2, 32, 32)
-        # output_img = self_act_conv(output_img, y)
-
-        output_img = self.genblock4(output_img)
-
-        return output_img
-
-#########################################################
-# discriminator
 
 class cont_cond_cnn_discriminator(nn.Module):
-    def __init__(self, use_sigmoid = True, nc=NC, ndf=64, bias = default_bias):
+    def __init__(self):
         super(cont_cond_cnn_discriminator, self).__init__()
-        self.ndf = ndf
-
-        self.inputblock = nn.Sequential(
-            # input is (nc) x 64 x 64
-            nn.Conv2d(nc, ndf, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
-            nn.BatchNorm2d(ndf),
-            nn.LeakyReLU(0.2, inplace=True),
-            # input is ndf x 32 x 32
-
-            nn.Conv2d(ndf, ndf, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.BatchNorm2d(ndf),
-            nn.LeakyReLU(0.2, inplace=True),
-        )
 
         self.discblock1 = nn.Sequential(
-            nn.Conv2d(ndf, ndf*2, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
-            nn.BatchNorm2d(ndf*2),
-            nn.LeakyReLU(0.2, inplace=True),
-            # input is (ndf*2) x 16 x 16
-
-            nn.Conv2d(ndf*2, ndf*2, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.BatchNorm2d(ndf*2),
-            nn.LeakyReLU(0.2, inplace=True),
+            FirstResBlockDiscriminator(channels, DISC_SIZE, stride=2, bias=True), #64--->32
+            ResBlockDiscriminator(DISC_SIZE  , DISC_SIZE*2, stride=2, bias=True), #32--->16
+            ResBlockDiscriminator(DISC_SIZE*2  , DISC_SIZE*4, stride=2, bias=True), #16--->8
         )
-
-        self.discblock2 = nn.Sequential(
-            nn.Conv2d(ndf*2, ndf*4, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
-            nn.BatchNorm2d(ndf*4),
-            nn.LeakyReLU(0.2, inplace=True),
-            # input is (ndf*4) x 8 x 8
-
-            nn.Conv2d(ndf*4, ndf*4, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.BatchNorm2d(ndf*4),
-            nn.LeakyReLU(0.2, inplace=True),
-        )
-
+        self.discblock2 = ResBlockDiscriminator(DISC_SIZE*4, DISC_SIZE*8, stride=2, bias=True) #8--->4
         self.discblock3 = nn.Sequential(
-            nn.Conv2d(ndf*4, ndf*8, kernel_size=4, stride=2, padding=1, bias=bias), #h=h/2
-            nn.BatchNorm2d(ndf*8),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            nn.Conv2d(ndf*8, ndf*8, kernel_size=3, stride=1, padding=1, bias=bias), #h=h
-            nn.LeakyReLU(0.2, inplace=True),
+            ResBlockDiscriminator(DISC_SIZE*8, DISC_SIZE*16, stride=1, bias=True), #4--->4;
+            nn.ReLU(),
         )
 
-        # self.linear1 = nn.Linear(ndf*8*4*4, 1, bias=True)
-        # self.linear2 = nn.Linear(label_width_d, 1, bias=True)
-        # self.sigmoid = nn.Sigmoid()
-
-        self.linear1 = nn.Linear(ndf*8*4*4, 1, bias=bias)
-        self.linear2 = nn.Linear(label_width_d, ndf*8, bias=bias)
-        ## self.linear2 = nn.Linear(label_width_d, ndf*8*4*4, bias=bias)
+        self.linear1 = nn.Linear(DISC_SIZE*16*4*4, 1, bias=True)
+        nn.init.xavier_uniform_(self.linear1.weight.data, 1.)
+        self.linear1 = spectral_norm(self.linear1)
+        self.linear2 = nn.Linear(1, DISC_SIZE*16*4*4, bias=False)
+        nn.init.xavier_uniform_(self.linear2.weight.data, 1.)
+        self.linear2 = spectral_norm(self.linear2)
         self.sigmoid = nn.Sigmoid()
 
-        # self.linear = nn.Sequential(
-        #     nn.Linear(ndf*8*4*4, 1, bias=bias),
-        #     nn.Sigmoid()
-        # )
+        # self.linear1 = nn.Linear(DISC_SIZE*16, 1, bias=True)
+        # nn.init.xavier_uniform_(self.linear1.weight.data, 1.)
+        # self.linear1 = spectral_norm(self.linear1)
+        # self.linear2 = nn.Linear(1, DISC_SIZE*16, bias=False)
+        # nn.init.xavier_uniform_(self.linear2.weight.data, 1.)
+        # self.linear2 = spectral_norm(self.linear2)
+        # self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, y):
         y = y.view(-1,1)
 
-        output = self.inputblock(x)
-        output = self.discblock1(output) #+ y.repeat(1,self.ndf*2*16*16).view(-1, self.ndf*2, 16, 16)
-        output = self.discblock2(output) #+ y.repeat(1,self.ndf*4*8*8).view(-1, self.ndf*4, 8, 8)
-        output = self.discblock3(output) #+ y.repeat(1,self.ndf*8*4*4).view(-1, self.ndf*8, 4, 4)
+        output = self.discblock1(x)
+        output = self.discblock2(output)
+        output = self.discblock3(output)
 
-        # output = output.view(-1, self.ndf*8*4*4)
-        # output1 = self.linear1(output)
-        # output2 = self.linear2(y.repeat(1, label_width_d))
-        # output = self.sigmoid(output1+output2)
-
-        output_y = torch.sum(torch.sum(output, axis=(2, 3))*self.linear2(y.repeat(1, label_width_d)), 1, keepdims=True)
-        output = output.view(-1, self.ndf*8*4*4)
+        output = output.view(-1, DISC_SIZE*16*4*4)
+        output_y = torch.sum(output*self.linear2(y+1), 1, keepdims=True)
         output = self.sigmoid(self.linear1(output) + output_y)
 
-        # output = output.view(-1, self.ndf*8*4*4)
-        # output = output + y.repeat(1,self.ndf*8*4*4)
-        # output = self.linear(output)
+        # output = torch.sum(output, dim=(2,3))
+        # output_y = torch.sum(output*self.linear2(y+1), 1, keepdims=True)
+        # output = self.sigmoid(self.linear1(output) + output_y)
 
         return output.view(-1, 1)

@@ -1,1 +1,0 @@
-function[out] = add_object(cellObj,locations,L)

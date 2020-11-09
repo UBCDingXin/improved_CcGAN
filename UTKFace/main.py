@@ -1,143 +1,98 @@
 print("\n===================================================================================================")
 
-
-import os
-wd = '/home/xin/OneDrive/Working_directory/Continuous_cGAN/UTKFace'
-
-os.chdir(wd)
-import sys
-import timeit
-import torch
-from torch import nn
-import torchvision
-import torchvision.transforms as transforms
+import argparse
+import copy
+import gc
 import numpy as np
-import torch.nn as nn
-import torch.backends.cudnn as cudnn
-from torch.nn import functional as F
-import random
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from torch import autograd
-from torchvision.utils import save_image
-from tqdm import tqdm
-import gc
-from itertools import groupby
-import argparse
-import multiprocessing
-from multiprocessing import Pool
-from scipy.stats import ks_2samp
 import h5py
-import pickle
-from torch.utils.tensorboard import SummaryWriter
+import os
+import random
+from tqdm import tqdm
+import torch
+import torchvision
+import torch.nn as nn
+import torch.backends.cudnn as cudnn
+from torchvision.utils import save_image
+import timeit
+from PIL import Image
+
+from opts import parse_opts
+args = parse_opts()
+wd = args.root_path
+os.chdir(wd)
 
 from utils import *
 from models import *
-from Train_CcGAN import *
 from Train_cGAN import *
+from Train_CcGAN import *
+from Train_CcGAN_limit import train_CcGAN_limit
 from eval_metrics import cal_FID, cal_labelscore
+
 
 #######################################################################################
 '''                                   Settings                                      '''
 #######################################################################################
-parser = argparse.ArgumentParser(description='Density-ratio based sampling for GANs')
-
-parser.add_argument('--GAN', type=str, default='ContcDCGAN',
-                    choices=['cDCGAN', 'ContcDCGAN'])
-parser.add_argument('--seed', type=int, default=2019, metavar='S',
-                    help='random seed (default: 1)')
-
-parser.add_argument('--img_size', type=int, default=64, metavar='N',
-                    choices=[64,128])
-parser.add_argument('--max_num_img_per_label', type=int, default=10000, metavar='N')
-parser.add_argument('--show_real_imgs', action='store_true', default=False)
-parser.add_argument('--visualize_fake_images', action='store_true', default=False)
-
-
-parser.add_argument('--kernel_sigma', type=float, default=-1.0,
-                    help='If kernel_sigma<0, then use rule-of-thumb formula to compute the sigma.')
-parser.add_argument('--threshold_type', type=str, default='soft',
-                    choices=['soft', 'hard'])
-parser.add_argument('--kappa', type=float, default=-1.0)
-
-
-parser.add_argument('--epoch_gan', type=int, default=2000)
-parser.add_argument('--lr_g_gan', type=float, default=1e-4,
-                    help='learning rate for generator')
-parser.add_argument('--lr_d_gan', type=float, default=2e-4,
-                    help='learning rate for discriminator')
-parser.add_argument('--dim_gan', type=int, default=128,
-                    help='Latent dimension of GAN')
-parser.add_argument('--batch_size_gan', type=int, default=64, metavar='N',
-                    help='input batch size for training GAN')
-parser.add_argument('--resumeTrain_gan', type=int, default=0)
-
-
-parser.add_argument('--samp_batch_size', type=int, default=100)
-parser.add_argument('--nfake', type=int, default=50000)
-parser.add_argument('--comp_FID', action='store_true', default=False)
-parser.add_argument('--epoch_FID_CNN', type=int, default=200)
-parser.add_argument('--comp_LS', action='store_true', default=False)
-# parser.add_argument('--num_eval_labels', type=int, default=80)
-parser.add_argument('--FID_num_classes', type=int, default=20)
-
-args = parser.parse_args()
-
 
 #-----------------------------
 # images
-NC = 3 #number of channels
+NC = args.num_channels #number of channels
 IMG_SIZE = args.img_size
 
 #--------------------------------
 # system
 NGPU = torch.cuda.device_count()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-NCPU = multiprocessing.cpu_count()
+NCPU = 8
 
 #-------------------------------
-# GAN
-ResumeEpoch_gan = args.resumeTrain_gan
-ADAM_beta1 = 0.5 #parameters for ADAM optimizer
-ADAM_beta2 = 0.999
-
-#-------------------------------
-# sampling parameters
-samp_batch_size = args.samp_batch_size #batch size for sampling from GAN or enhanced sampler
-
-#-------------------------------
-#seeds
+# seeds
 random.seed(args.seed)
 torch.manual_seed(args.seed)
 torch.backends.cudnn.deterministic = True
-cudnn.benchmark = False # For fast training
+cudnn.benchmark = False
 np.random.seed(args.seed)
 
 #-------------------------------
 # output folders
-save_models_folder = wd + '/Output/saved_models'
+save_models_folder = wd + '/output/saved_models'
 os.makedirs(save_models_folder, exist_ok=True)
-save_images_folder = wd + '/Output/saved_images'
+save_images_folder = wd + '/output/saved_images'
 os.makedirs(save_images_folder, exist_ok=True)
-save_traincurves_folder = wd + '/Output/Training_loss_fig'
+save_traincurves_folder = wd + '/output/training_loss_fig'
 os.makedirs(save_traincurves_folder, exist_ok=True)
-
 
 
 #######################################################################################
 '''                                    Data loader                                 '''
 #######################################################################################
 # data loader
-data_filename = wd+'/data/UTKFace_' + str(args.img_size) + 'x' + str(args.img_size) + '.h5'
+data_filename = args.data_path + '/UTKFace_{}x{}.h5'.format(IMG_SIZE, IMG_SIZE)
 hf = h5py.File(data_filename, 'r')
 labels = hf['labels'][:]
 labels = labels.astype(np.float)
 images = hf['images'][:]
 hf.close()
 
-if args.visualize_fake_images or args.comp_FID or args.comp_LS:
-    raw_images = images #backup images;
-    raw_labels = labels #backup labels
+# subset of UTKFace
+selected_labels = np.arange(args.min_age, args.max_age+1)
+for i in range(len(selected_labels)):
+    curr_label = selected_labels[i]
+    index_curr_label = np.where(labels==curr_label)[0]
+    if i == 0:
+        images_subset = images[index_curr_label]
+        labels_subset = labels[index_curr_label]
+    else:
+        images_subset = np.concatenate((images_subset, images[index_curr_label]), axis=0)
+        labels_subset = np.concatenate((labels_subset, labels[index_curr_label]))
+# for i
+images = images_subset
+labels = labels_subset
+del images_subset, labels_subset; gc.collect()
+
+raw_images = copy.deepcopy(images)
+raw_labels = copy.deepcopy(labels)
 
 ### show some real  images
 if args.show_real_imgs:
@@ -146,30 +101,15 @@ if args.show_real_imgs:
     images_show = np.zeros((nrow*ncol, images.shape[1], images.shape[2], images.shape[3]))
     for i in range(nrow):
         curr_label = unique_labels_show[i]
-        indx_curr_label = np.where(labels==curr_label)[0][0:ncol]
+        indx_curr_label = np.where(labels==curr_label)[0]
+        np.random.shuffle(indx_curr_label)
+        indx_curr_label = indx_curr_label[0:ncol]
         for j in range(ncol):
             images_show[i*ncol+j,:,:,:] = images[indx_curr_label[j]]
     print(images_show.shape)
     images_show = (images_show/255.0-0.5)/0.5
     images_show = torch.from_numpy(images_show)
     save_image(images_show.data, save_images_folder +'/real_images_grid_{}x{}.png'.format(nrow, ncol), nrow=ncol, normalize=True)
-
-# # subset of UTKFace
-# range_selected_labels = np.arange(1, 31)
-# n_unique_labels = len(range_selected_labels)
-# for i in range(n_unique_labels):
-#     curr_label = range_selected_labels[i]
-#     index_curr_label = np.where(labels==curr_label)[0]
-#     if i == 0:
-#         images_subset = images[index_curr_label]
-#         labels_subset = labels[index_curr_label]
-#     else:
-#         images_subset = np.concatenate((images_subset, images[index_curr_label]), axis=0)
-#         labels_subset = np.concatenate((labels_subset, labels[index_curr_label]))
-# # for i
-# images = images_subset
-# labels = labels_subset
-# del images_subset, labels_subset; gc.collect()
 
 
 # for each age, take no more than args.max_num_img_per_label images
@@ -190,26 +130,81 @@ labels = labels[sel_indx]
 print("{} images left.".format(len(images)))
 
 
-hist_filename = wd + "/histogram_unnormalized_age_" + str(args.img_size) + 'x' + str(args.img_size)
+hist_filename = wd + "/histogram_before_replica_unnormalized_age_" + str(args.img_size) + 'x' + str(args.img_size)
 num_bins = len(list(set(labels)))
 plt.figure()
 plt.hist(labels, num_bins, facecolor='blue', density=False)
 plt.savefig(hist_filename)
 
 
+## replicate minority samples to alleviate the imbalance
+max_num_img_per_label_after_replica = np.min([args.max_num_img_per_label_after_replica, args.max_num_img_per_label])
+if max_num_img_per_label_after_replica>1:
+    unique_labels_replica = np.sort(np.array(list(set(labels))))
+    num_labels_replicated = 0
+    print("Start replicating monority samples >>>")
+    for i in tqdm(range(len(unique_labels_replica))):
+        # print((i, num_labels_replicated))
+        curr_label = unique_labels_replica[i]
+        indx_i = np.where(labels == curr_label)[0]
+        if len(indx_i) < max_num_img_per_label_after_replica:
+            num_img_less = max_num_img_per_label_after_replica - len(indx_i)
+            indx_replica = np.random.choice(indx_i, size = num_img_less, replace=True)
+            if num_labels_replicated == 0:
+                images_replica = images[indx_replica]
+                labels_replica = labels[indx_replica]
+            else:
+                images_replica = np.concatenate((images_replica, images[indx_replica]), axis=0)
+                labels_replica = np.concatenate((labels_replica, labels[indx_replica]))
+            num_labels_replicated+=1
+    #end for i
+    images = np.concatenate((images, images_replica), axis=0)
+    labels = np.concatenate((labels, labels_replica))
+    print("We replicate {} images and labels \n".format(len(images_replica)))
+    del images_replica, labels_replica; gc.collect()
+# hist_filename = wd + "/histogram_replica_age_" + str(args.img_size) + 'x' + str(args.img_size)
+# num_bins = len(list(set(labels)))
+# plt.figure()
+# plt.hist(labels, num_bins, facecolor='blue', density=False)
+# plt.savefig(hist_filename)
 
+# plot the histogram of unnormalized labels
+hist_filename = wd + "/histogram_after_replica_unnormalized_age_" + str(args.img_size) + 'x' + str(args.img_size)
+num_bins = len(list(set(labels)))
+plt.figure()
+plt.hist(labels, num_bins, facecolor='blue', density=False)
+plt.savefig(hist_filename)
 
 
 # normalize labels
 print("\n Range of unnormalized labels: ({},{})".format(np.min(labels), np.max(labels)))
 max_label = np.max(labels)
-if args.GAN == "cDCGAN": #treated as classification; convert ages to class labels
-    unique_labels = np.sort(np.array(list(set(labels)))).astype(np.int)
-    label2class = dict() #convert age to class label
-    class2label = dict() #convert class label to age
-    for i in range(len(unique_labels)):
-        label2class[unique_labels[i]]=i
-        class2label[i] = unique_labels[i]
+assert max_label == args.max_age
+if args.GAN == "cGAN": #treated as classification; convert ages to class labels
+    unique_labels = np.sort(np.array(list(set(labels))))
+    num_unique_labels = len(unique_labels)
+    print("{} unique labels are split into {} classes".format(num_unique_labels, args.cGAN_num_classes))
+
+    ## convert ages to class labels and vice versa
+    ### step 1: prepare two dictionaries
+    label2class = dict()
+    class2label = dict()
+    num_labels_per_class = num_unique_labels//args.cGAN_num_classes
+    class_cutoff_points = [unique_labels[0]] #the cutoff points on [min_label, max_label] to determine classes; each interval is a class
+    curr_class = 0
+    for i in range(num_unique_labels):
+        label2class[unique_labels[i]]=curr_class
+        if (i+1)%num_labels_per_class==0 and (curr_class+1)!=args.cGAN_num_classes:
+            curr_class += 1
+            class_cutoff_points.append(unique_labels[i+1])
+    class_cutoff_points.append(unique_labels[-1])
+    assert len(class_cutoff_points)-1 == args.cGAN_num_classes
+
+    ### the cell label of each interval equals to the average of the two end points
+    for i in range(args.cGAN_num_classes):
+        class2label[i] = (class_cutoff_points[i]+class_cutoff_points[i+1])/2
+
+    ### step 2: convert ages to class labels
     labels_new = -1*np.ones(len(labels))
     for i in range(len(labels)):
         labels_new[i] = label2class[labels[i]]
@@ -218,8 +213,10 @@ if args.GAN == "cDCGAN": #treated as classification; convert ages to class label
     del labels_new; gc.collect()
     unique_labels = np.sort(np.array(list(set(labels)))).astype(np.int)
 else:
-    labels /= max_label #normalize to [0,1]
+    labels /= args.max_age #normalize to [0,1]
+    # labels /= max_label #normalize to [0,1]
 
+    # plot the histogram of normalized labels
     hist_filename = wd + "/histogram_normalized_age_" + str(args.img_size) + 'x' + str(args.img_size)
     num_bins = len(list(set(labels)))
     plt.figure()
@@ -242,57 +239,42 @@ else:
         diff_list = []
         for i in range(1,n_unique):
             diff_list.append(unique_labels_norm[i] - unique_labels_norm[i-1])
-        kappa_base = 2*np.max(np.array(diff_list))
-        # kappa_base = 1*np.max(np.array(diff_list))
+        kappa_base = np.abs(args.kappa)*np.max(np.array(diff_list))
 
         if args.threshold_type=="hard":
             args.kappa = kappa_base
         else:
-            # args.kappa = min(1/kappa_base**2, 5000)
             args.kappa = 1/kappa_base**2
-
-
-
-trainset = IMGs_dataset(images, labels, normalize=True)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size_gan, shuffle=True, num_workers=8)
-
-
+# if args.GAN
 
 #######################################################################################
 '''                                    GAN training                                 '''
 #######################################################################################
-
 print("{}, Sigma is {}, Kappa is {}".format(args.threshold_type, args.kernel_sigma, args.kappa))
 
-if args.GAN in ['ContcDCGAN']:
-    save_GANimages_InTrain_folder = wd + '/Output/saved_images/' + args.GAN + '_' + args.threshold_type + '_' + str(args.kernel_sigma) + '_' + str(args.kappa) + '_size_{}x{}'.format(args.img_size, args.img_size) + '_InTrain/'
+if args.GAN == 'CcGAN':
+    save_GANimages_InTrain_folder = save_images_folder + '/{}_{}_{}_{}_InTrain'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa)
 else:
-    save_GANimages_InTrain_folder = wd + '/Output/saved_images/' + args.GAN + '_size_{}x{}'.format(args.img_size, args.img_size) + '_InTrain/'
+    save_GANimages_InTrain_folder = save_images_folder + '/{}_InTrain'.format(args.GAN)
 os.makedirs(save_GANimages_InTrain_folder, exist_ok=True)
 
 start = timeit.default_timer()
 print("\n Begin Training %s:" % args.GAN)
-
 #----------------------------------------------
-# cDCGAN: treated as a classification dataset
-if args.GAN in ["cDCGAN"]:
-    Filename_GAN = save_models_folder + '/ckpt_' + args.GAN + '_epoch_' + str(args.epoch_gan) + '_SEED_' + str(args.seed) + '_size_{}x{}'.format(args.img_size, args.img_size)
+# cGAN: treated as a classification dataset
+if args.GAN == "cGAN":
+    Filename_GAN = save_models_folder + '/ckpt_{}_niters_{}_nclass_{}_seed_{}.pth'.format(args.GAN, args.niters_gan, args.cGAN_num_classes, args.seed)
+    print(Filename_GAN)
     if not os.path.isfile(Filename_GAN):
         print("There are {} unique labels".format(len(unique_labels)))
 
-        netG = cond_cnn_generator(args.dim_gan, num_classes=len(unique_labels))
-        netD = cond_cnn_discriminator(True, num_classes=len(unique_labels))
-        # if args.resumeTrain_gan==0:
-        #     netG.apply(weights_init)
-        #     netD.apply(weights_init)
+        netG = cond_cnn_generator(nz=args.dim_gan, num_classes=args.cGAN_num_classes)
+        netD = cond_cnn_discriminator(num_classes=args.cGAN_num_classes)
         netG = nn.DataParallel(netG)
         netD = nn.DataParallel(netD)
-        criterion = nn.BCELoss()
-        optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
-        optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
 
         # Start training
-        netG, netD, optimizerG, optimizerD = train_cGAN(args.GAN, unique_labels, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, criterion, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan)
+        netG, netD = train_cGAN(images, labels, netG, netD, save_images_folder=save_GANimages_InTrain_folder, save_models_folder = save_models_folder)
 
         # store model
         torch.save({
@@ -302,41 +284,35 @@ if args.GAN in ["cDCGAN"]:
     else:
         print("Loading pre-trained generator >>>")
         checkpoint = torch.load(Filename_GAN)
-        netG = cond_cnn_generator(args.dim_gan, num_classes=len(unique_labels)).to(device)
+        netG = cond_cnn_generator(args.dim_gan, num_classes=args.cGAN_num_classes).to(device)
         netG = nn.DataParallel(netG)
         netG.load_state_dict(checkpoint['netG_state_dict'])
 
     # function for sampling from a trained GAN
-    def fn_sampleGAN(nfake, batch_size):
-        fake_images, fake_labels = SampcGAN(netG, class2label=class2label, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, img_size=args.img_size, num_classes = len(unique_labels), device=device)
-        fake_labels = (fake_labels + np.abs(min_label_before_shift)) / max_label_after_shift
-        return fake_images, fake_labels
-
     def fn_sampleGAN_given_label(nfake, label, batch_size):
-        label = int((label * max_label_after_shift) - np.abs(min_label_before_shift)) #back to original scale
-        fake_images, fake_labels = SampcDCGAN_given_label(netG, label, unique_labels=unique_labels, label2class=label2class, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, img_size=args.img_size, device=device)
-        fake_labels = (fake_labels + np.abs(min_label_before_shift)) / max_label_after_shift
+        fake_labels = np.ones(nfake) * label #normalized labels
+        label = int(label * max_label) #back to original scale
+        fake_images, _ = SampcGAN_given_label(netG, label, class_cutoff_points=class_cutoff_points, NFAKE = nfake, batch_size = batch_size)
         return fake_images, fake_labels
 
 #----------------------------------------------
-# Concitnuous cDCGAN
-if args.GAN in ["ContcDCGAN"]:
-    Filename_GAN = save_models_folder + '/ckpt_' + args.GAN + '_epoch_' + str(args.epoch_gan) + '_SEED_' + str(args.seed) + '_' + args.threshold_type + '_' + str(args.kernel_sigma) + '_size_{}x{}'.format(args.img_size, args.img_size) + '_' + str(args.kappa)
+# Concitnuous cGAN
+elif args.GAN == "CcGAN":
+    Filename_GAN = save_models_folder + '/ckpt_{}_niters_{}_seed_{}_{}_{}_{}.pth'.format(args.GAN, args.niters_gan, args.seed, args.threshold_type, args.kernel_sigma, args.kappa)
+    print(Filename_GAN)
+
     if not os.path.isfile(Filename_GAN):
-        netG = cont_cond_cnn_generator(nz=args.dim_gan).to(device)
-        netD = cont_cond_cnn_discriminator(use_sigmoid = True).to(device)
-        # if args.resumeTrain_gan==0:
-        #     netG.apply(weights_init)
-        #     netD.apply(weights_init)
+        netG = cont_cond_cnn_generator(nz=args.dim_gan)
+        netD = cont_cond_cnn_discriminator()
         netG = nn.DataParallel(netG)
         netD = nn.DataParallel(netD)
-        optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lr_g_gan, betas=(ADAM_beta1, ADAM_beta2))
-        optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lr_d_gan, betas=(ADAM_beta1, ADAM_beta2))
-
-        tfboard_writer = SummaryWriter(wd+'/Output/saved_logs')
 
         # Start training
-        netG, netD, optimizerG, optimizerD = train_CcGAN(args.GAN, labels, args.kernel_sigma, args.threshold_type, args.kappa, args.epoch_gan, args.dim_gan, trainloader, netG, netD, optimizerG, optimizerD, save_GANimages_InTrain_folder, save_models_folder = save_models_folder, ResumeEpoch = args.resumeTrain_gan, tfboard_writer=tfboard_writer)
+        if args.kernel_sigma>1e-30:
+            netG, netD = train_CcGAN(args.kernel_sigma, args.kappa, images, labels, netG, netD, save_images_folder=save_GANimages_InTrain_folder, save_models_folder = save_models_folder)
+        else:
+            print("\n Limiting mode...")
+            netG, netD = train_CcGAN_limit(images, labels, netG, netD, save_images_folder=save_GANimages_InTrain_folder, save_models_folder = save_models_folder)
 
         # store model
         torch.save({
@@ -347,75 +323,151 @@ if args.GAN in ["ContcDCGAN"]:
     else:
         print("Loading pre-trained generator >>>")
         checkpoint = torch.load(Filename_GAN)
-        netG = cont_cond_cnn_generator(nz=args.dim_gan).to(device)
+        netG = cont_cond_cnn_generator(args.dim_gan).to(device)
         netG = nn.DataParallel(netG)
         netG.load_state_dict(checkpoint['netG_state_dict'])
 
     def fn_sampleGAN_given_label(nfake, label, batch_size):
-        fake_images, fake_labels = SampCcGAN_given_label(netG, label, path=None, dim_GAN = args.dim_gan, NFAKE = nfake, batch_size = batch_size, device=device)
+        fake_images, fake_labels = SampCcGAN_given_label(netG, label, path=None, NFAKE = nfake, batch_size = batch_size)
         return fake_images, fake_labels
 
 stop = timeit.default_timer()
 print("GAN training finished; Time elapses: {}s".format(stop - start))
 
 
+
 #######################################################################################
 '''                                  Evaluation                                     '''
 #######################################################################################
-if args.comp_FID or args.comp_LS:
-    if args.comp_FID:
-        PreNetFID = ResNet34_class(num_classes=args.FID_num_classes, ngpu = NGPU).to(device)
-        Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_class_epoch_{}_SEED_2020_img_size_64_num_classes_{}_CVMode_False'.format(args.epoch_FID_CNN, args.FID_num_classes)
-        checkpoint_PreNet = torch.load(Filename_PreCNNForEvalGANs)
-        PreNetFID.load_state_dict(checkpoint_PreNet['net_state_dict'])
-    if args.comp_LS:
-        PreNetLS = ResNet34_regre(ngpu = NGPU).to(device)
-        Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_regre_epoch_{}_SEED_2020_img_size_64_CVMode_False'.format(args.epoch_FID_CNN)
-        checkpoint_PreNet = torch.load(Filename_PreCNNForEvalGANs)
-        PreNetLS.load_state_dict(checkpoint_PreNet['net_state_dict'])
+if args.comp_FID:
+
+    #for FID
+    PreNetFID = encoder(dim_bottleneck=512).to(device)
+    PreNetFID = nn.DataParallel(PreNetFID)
+    Filename_PreCNNForEvalGANs = save_models_folder + '/ckpt_AE_epoch_200_seed_2020_CVMode_False.pth'
+    checkpoint_PreNet = torch.load(Filename_PreCNNForEvalGANs)
+    PreNetFID.load_state_dict(checkpoint_PreNet['net_encoder_state_dict'])
+
+    # Diversity: entropy of predicted races within each eval center
+    PreNetDiversity = ResNet34_class(num_classes=5, ngpu = NGPU).to(device) #5 races
+    Filename_PreCNNForEvalGANs_Diversity = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_class_epoch_200_seed_2020_classify_5_races_CVMode_False.pth'
+    checkpoint_PreNet = torch.load(Filename_PreCNNForEvalGANs_Diversity)
+    PreNetDiversity.load_state_dict(checkpoint_PreNet['net_state_dict'])
+
+    # for LS
+    PreNetLS = ResNet34_regre(ngpu = NGPU).to(device)
+    Filename_PreCNNForEvalGANs_LS = save_models_folder + '/ckpt_PreCNNForEvalGANs_ResNet34_regre_epoch_200_seed_2020_CVMode_False.pth'
+    checkpoint_PreNet = torch.load(Filename_PreCNNForEvalGANs_LS)
+    PreNetLS.load_state_dict(checkpoint_PreNet['net_state_dict'])
 
     #####################
     # generate nfake images
-    print("Start sampling {} fake images from GAN >>>".format(args.nfake))
+    print("Start sampling {} fake images per label from GAN >>>".format(args.nfake_per_label))
 
-    eval_labels_norm = np.arange(1, max_label+1) / max_label
+    eval_labels_norm = np.arange(1, max_label+1) / max_label # normalized labels for evaluation
     num_eval_labels = len(eval_labels_norm)
 
+    ## wo dump
     for i in tqdm(range(num_eval_labels)):
         curr_label = eval_labels_norm[i]
+        curr_fake_images, curr_fake_labels = fn_sampleGAN_given_label(args.nfake_per_label, curr_label, args.samp_batch_size)
+
         if i == 0:
-            curr_nfake = args.nfake - (args.nfake//num_eval_labels) * (num_eval_labels-1)
-            curr_fake_images, curr_fake_labels = fn_sampleGAN_given_label(curr_nfake, curr_label, args.samp_batch_size)
             fake_images = curr_fake_images
             fake_labels_assigned = curr_fake_labels.reshape(-1)
         else:
-            curr_nfake = args.nfake//num_eval_labels
-            curr_fake_images, curr_fake_labels = fn_sampleGAN_given_label(curr_nfake, curr_label, args.samp_batch_size)
             fake_images = np.concatenate((fake_images, curr_fake_images), axis=0)
             fake_labels_assigned = np.concatenate((fake_labels_assigned, curr_fake_labels.reshape(-1)))
-    assert len(fake_images) == args.nfake
-    assert len(fake_labels_assigned) == args.nfake
+    assert len(fake_images) == args.nfake_per_label*num_eval_labels
+    assert len(fake_labels_assigned) == args.nfake_per_label*num_eval_labels
+
+
+    ## dump fake images for evaluation: NIQE
+    if args.GAN == "cGAN":
+        dump_fake_images_folder = wd + "/dump_fake_data/fake_images_cGAN_nclass_{}_nsamp_{}".format(args.cGAN_num_classes, len(fake_images))
+    else:
+        if args.kernel_sigma>1e-30:
+            dump_fake_images_folder = wd + "/dump_fake_data/fake_images_CcGAN_{}_nsamp_{}".format(args.threshold_type, len(fake_images))
+        else:
+            dump_fake_images_folder = wd + "/dump_fake_data/fake_images_CcGAN_limit_nsamp_{}".format(len(fake_images))
+    for i in tqdm(range(len(fake_images))):
+        label_i = int(fake_labels_assigned[i]*max_label)
+        filename_i = dump_fake_images_folder + "/{}_{}.png".format(i, label_i)
+        os.makedirs(os.path.dirname(filename_i), exist_ok=True)
+        image_i = fake_images[i]
+        image_i = ((image_i*0.5+0.5)*255.0).astype(np.uint8)
+        image_i_pil = Image.fromarray(image_i.transpose(1,2,0))
+        image_i_pil.save(filename_i)
+    #end for i
+
     print("End sampling!")
+    print("\n We got {} fake images.".format(len(fake_images)))
 
-    # FID
-    if args.comp_FID:
-        real_images_norm = (raw_images/255.0-0.5)/0.5
-        indx_shuffle_real = np.arange(len(real_images_norm)); np.random.shuffle(indx_shuffle_real)
-        indx_shuffle_fake = np.arange(args.nfake); np.random.shuffle(indx_shuffle_fake)
-        FID = cal_FID(PreNetFID, real_images_norm[indx_shuffle_real], fake_images[indx_shuffle_fake], batch_size = 100, resize = None)
+    #####################
+    # normalize real images and labels
+    real_images = (raw_images/255.0-0.5)/0.5
+    real_labels = raw_labels/max_label
+    nfake_all = len(fake_images)
+    nreal_all = len(real_images)
+
+    #####################
+    # Evaluate FID within a sliding window with a radius R on the label's range (i.e., [1,max_label]). The center of the sliding window locate on [R+1,2,3,...,max_label-R].
+    center_start = 1+args.FID_radius
+    center_stop = max_label-args.FID_radius
+    centers_loc = np.arange(center_start, center_stop+1)
+    FID_over_centers = np.zeros(len(centers_loc))
+    entropies_over_centers = np.zeros(len(centers_loc)) # entropy at each center
+    labelscores_over_centers = np.zeros(len(centers_loc)) #label score at each center
+    num_realimgs_over_centers = np.zeros(len(centers_loc))
+    for i in range(len(centers_loc)):
+        center = centers_loc[i]
+        interval_start = (center - args.FID_radius)/max_label
+        interval_stop = (center + args.FID_radius)/max_label
+        indx_real = np.where((real_labels>=interval_start)*(real_labels<=interval_stop)==True)[0]
+        np.random.shuffle(indx_real)
+        real_images_curr = real_images[indx_real]
+        num_realimgs_over_centers[i] = len(real_images_curr)
+        indx_fake = np.where((fake_labels_assigned>=interval_start)*(fake_labels_assigned<=interval_stop)==True)[0]
+        np.random.shuffle(indx_fake)
+        fake_images_curr = fake_images[indx_fake]
+        fake_labels_assigned_curr = fake_labels_assigned[indx_fake]
+        # FID
+        FID_over_centers[i] = cal_FID(PreNetFID, real_images_curr, fake_images_curr, batch_size = 500, resize = None)
+        # Entropy of predicted class labels
+        predicted_class_labels = predict_class_labels(PreNetDiversity, fake_images_curr, batch_size=500)
+        entropies_over_centers[i] = compute_entropy(predicted_class_labels)
+        # Label score
+        labelscores_over_centers[i], _ = cal_labelscore(PreNetLS, fake_images_curr, fake_labels_assigned_curr, min_label_before_shift=0, max_label_after_shift=args.max_age, batch_size = 500, resize = None)
+
+        print("\r Center:{}; Real:{}; Fake:{}; FID:{}; LS:{}; ET:{}.".format(center, len(real_images_curr), len(fake_images_curr), FID_over_centers[i], labelscores_over_centers[i], entropies_over_centers[i]))
+
+    # average over all centers
+    print("\n {} SFID: {}({}); min/max: {}/{}.".format(args.GAN, np.mean(FID_over_centers), np.std(FID_over_centers), np.min(FID_over_centers), np.max(FID_over_centers)))
+    print("\n {} LS over centers: {}({}); min/max: {}/{}.".format(args.GAN, np.mean(labelscores_over_centers), np.std(labelscores_over_centers), np.min(labelscores_over_centers), np.max(labelscores_over_centers)))
+    print("\n {} entropy over centers: {}({}); min/max: {}/{}.".format(args.GAN, np.mean(entropies_over_centers), np.std(entropies_over_centers), np.min(entropies_over_centers), np.max(entropies_over_centers)))
+
+    # dump FID versus number of samples (for each center) to npy
+    if args.GAN == "cGAN":
+        dump_fid_ls_entropy_over_centers_filename = wd + "/cGAN_nclass_{}_fid_ls_entropy_over_centers".format(args.cGAN_num_classes)
     else:
-        FID = 'NaN'
+        if args.kernel_sigma>1e-30:
+            dump_fid_ls_entropy_over_centers_filename = wd + "/CcGAN_{}_fid_ls_entropy_over_centers".format(args.threshold_type)
+        else:
+            dump_fid_ls_entropy_over_centers_filename = wd + "/CcGAN_limit_fid_ls_entropy_over_centers"
+    np.savez(dump_fid_ls_entropy_over_centers_filename, fids=FID_over_centers, labelscores=labelscores_over_centers, entropies=entropies_over_centers, nrealimgs=num_realimgs_over_centers, centers=centers_loc)
 
-    # Label score (LS)
-    if args.comp_LS:
-        ls_mean, ls_std = cal_labelscore(PreNetLS, fake_images, fake_labels_assigned, batch_size = 100, resize = None)
-        ls_mean = ls_mean * max_label #back to original scale
-    else:
-        ls_mean = 'NaN'
-        ls_std = 'NaN'
 
-    # print("\n {} FID: {}({}); LS: {}({}).".format(args.GAN, FID_mean, FID_std, ls_mean, ls_std))
-    print("\n {} FID: {}; LS: {}({}).".format(args.GAN, FID, ls_mean, ls_std))
+    #####################
+    # FID: Evaluate FID on all fake images
+    indx_shuffle_real = np.arange(nreal_all); np.random.shuffle(indx_shuffle_real)
+    indx_shuffle_fake = np.arange(nfake_all); np.random.shuffle(indx_shuffle_fake)
+    FID = cal_FID(PreNetFID, real_images[indx_shuffle_real], fake_images[indx_shuffle_fake], batch_size = 500, resize = None)
+    print("\n {}: FID of {} fake images: {}.".format(args.GAN, nfake_all, FID))
+
+    #####################
+    # Overall LS: abs(y_assigned - y_predicted)
+    ls_mean_overall, ls_std_overall = cal_labelscore(PreNetLS, fake_images, fake_labels_assigned, min_label_before_shift=0, max_label_after_shift=args.max_age, batch_size = 500, resize = None)
+    print("\n {}: overall LS of {} fake images: {}({}).".format(args.GAN, nfake_all, ls_mean_overall, ls_std_overall))
 
 
 
@@ -427,15 +479,15 @@ if args.visualize_fake_images:
     ## 10 rows; 3 columns (3 samples for each age)
     n_row = 10
     n_col = 3
-    # displayed_normalized_labels = np.linspace(0.05, 1, n_row)
-    displayed_labels = [4, 12, 20, 28, 36, 44, 52, 60, 68, 76];
-    assert len(displayed_labels) == n_row
+    displayed_labels = (np.linspace(0.05, 0.95, n_row)*max_label).astype(np.int)
+    # displayed_labels = np.array([3,9,15,21,27,33,39,45,51,57])
+    # displayed_labels = np.array([4,10,16,22,28,34,40,46,52,58])
     displayed_normalized_labels = displayed_labels/max_label
     ### output fake images from a trained GAN
-    if args.GAN == 'ContcDCGAN':
+    if args.GAN == 'CcGAN':
         filename_fake_images = save_images_folder + '/{}_{}_sigma_{}_kappa_{}_fake_images_grid_{}x{}.png'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa, n_row, n_col)
     else:
-        filename_fake_images = save_images_folder + '/{}_fake_images_grid_{}x{}.png'.format(args.GAN, n_row, n_col)
+        filename_fake_images = save_images_folder + '/{}_nclass_{}_fake_images_grid_{}x{}.png'.format(args.GAN, args.cGAN_num_classes, n_row, n_col)
     images_show = np.zeros((n_row*n_col, images.shape[1], images.shape[2], images.shape[3]))
     for i_row in range(n_row):
         curr_label = displayed_normalized_labels[i_row]
@@ -443,37 +495,30 @@ if args.visualize_fake_images:
             curr_image, _ = fn_sampleGAN_given_label(1, curr_label, 1)
             images_show[i_row*n_col+j_col,:,:,:] = curr_image
     images_show = torch.from_numpy(images_show)
-    print(n_row)
     save_image(images_show.data, filename_fake_images, nrow=n_col, normalize=True)
+    print("displayed_labels: ", displayed_labels)
 
-
-
-
-
-
-
-    # ## 3 rows (3 samples); 10 columns
-    # n_row = 3
-    # n_col = 10
-    # displayed_normalized_labels = np.linspace(0.05, 1, n_col)
-    # ### output fake images from a trained GAN
-    # if args.GAN == 'ContcDCGAN':
-    #     filename_fake_images = save_images_folder + '/{}_{}_sigma_{}_kappa_{}_fake_images_grid_{}x{}.png'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa, n_row, n_col)
-    # else:
-    #     filename_fake_images = save_images_folder + '/{}_fake_images_grid_{}x{}.png'.format(args.GAN, n_row, n_col)
-    # images_show = np.zeros((n_row*n_col, images.shape[1], images.shape[2], images.shape[3]))
-    # for i_row in range(n_row):
-    #     for j_col in range(n_col):
-    #         curr_label = displayed_normalized_labels[j_col]
-    #         curr_image, _ = fn_sampleGAN_given_label(1, curr_label, 1)
-    #         images_show[i_row*n_col+j_col,:,:,:] = curr_image
-    # images_show = torch.from_numpy(images_show)
-    # save_image(images_show.data, filename_fake_images, nrow=n_col, normalize=True)
+    #----------------------------------------------------------------
+    ### output some real images as baseline
+    filename_real_images = save_images_folder + '/real_images_grid_{}x{}.png'.format(n_row, n_col)
+    if not os.path.isfile(filename_real_images):
+        images_show = np.zeros((n_row*n_col, NC, IMG_SIZE, IMG_SIZE))
+        for i_row in range(n_row):
+            curr_label = displayed_labels[i_row]
+            for j_col in range(n_col):
+                indx_curr_label = np.where(raw_labels==curr_label)[0]
+                np.random.shuffle(indx_curr_label)
+                indx_curr_label = indx_curr_label[0]
+                images_show[i_row*n_col+j_col] = raw_images[indx_curr_label]
+        images_show = (images_show/255.0-0.5)/0.5
+        images_show = torch.from_numpy(images_show)
+        save_image(images_show.data, filename_real_images, nrow=n_col, normalize=True)
 
     # Second, fix z but increase y; check whether there is a continuous change, only for CcGAN
-    if args.GAN == 'ContcDCGAN':
-        n_continuous_labels = 10
-        normalized_continuous_labels = np.linspace(0.05, 1, n_continuous_labels)
+    if args.GAN == 'CcGAN':
+        # n_continuous_labels = 10
+        # normalized_continuous_labels = np.linspace(0.05, 0.95, n_continuous_labels)
+        normalized_continuous_labels = displayed_normalized_labels; n_continuous_labels=len(normalized_continuous_labels)
         z = torch.randn(1, args.dim_gan, dtype=torch.float).to(device)
         continuous_images_show = torch.zeros(n_continuous_labels, NC, IMG_SIZE, IMG_SIZE, dtype=torch.float)
 

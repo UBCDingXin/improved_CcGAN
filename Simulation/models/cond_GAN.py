@@ -21,23 +21,23 @@ class cond_generator(nn.Module):
                 nn.BatchNorm1d(inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(inner_dim, inner_dim), #layer 2
-                nn.BatchNorm1d(inner_dim),
-                nn.ReLU(True),
-
                 nn.Linear(inner_dim, inner_dim), #layer 3
                 nn.BatchNorm1d(inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(inner_dim, inner_dim), #layer 2
+                nn.Linear(inner_dim, inner_dim), #layer 4
                 nn.BatchNorm1d(inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(inner_dim, inner_dim), #layer 3
+                nn.Linear(inner_dim, inner_dim), #layer 5
                 nn.BatchNorm1d(inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(inner_dim, self.out_dim), #layer 4
+                nn.Linear(inner_dim, inner_dim), #layer 6
+                nn.BatchNorm1d(inner_dim),
+                nn.ReLU(True),
+
+                nn.Linear(inner_dim, self.out_dim), #layer 7
         )
 
         self.label_emb = nn.Embedding(num_classes, num_classes)
@@ -77,10 +77,10 @@ class cond_discriminator(nn.Module):
         )
 
         self.output = nn.Sequential(
-            nn.Linear(self.inner_dim+num_classes, self.inner_dim), #layer 2
+            nn.Linear(self.inner_dim+num_classes, self.inner_dim), #layer 5
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, 1),
+            nn.Linear(self.inner_dim, 1), #layer 6
             nn.Sigmoid()
         )
 

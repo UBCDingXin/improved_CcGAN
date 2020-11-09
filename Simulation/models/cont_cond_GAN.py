@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-set_bias = False
+
 #########################################################
 # genearator
+bias_g = False
 class cont_cond_generator(nn.Module):
     def __init__(self, ngpu=1, nz=2, out_dim=2, radius=1):
         super(cont_cond_generator, self).__init__()
@@ -16,35 +17,36 @@ class cont_cond_generator(nn.Module):
         self.inner_dim = 100
 
         self.linear = nn.Sequential(
-                nn.Linear(nz+2, self.inner_dim, bias=set_bias),
+                nn.Linear(nz+2, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.out_dim, bias=set_bias),
+                nn.Linear(self.inner_dim, self.out_dim, bias=bias_g),
             )
 
     def forward(self, input, labels):
         input = input.view(-1, self.nz)
+
         labels = labels.view(-1, 1)*2*np.pi
         input = torch.cat((input, self.radius*torch.sin(labels), self.radius*torch.cos(labels)), 1)
 
@@ -56,6 +58,7 @@ class cont_cond_generator(nn.Module):
 
 #########################################################
 # discriminator
+bias_d=False
 class cont_cond_discriminator(nn.Module):
     def __init__(self, ngpu=1, input_dim = 2, radius=1):
         super(cont_cond_discriminator, self).__init__()
@@ -65,28 +68,29 @@ class cont_cond_discriminator(nn.Module):
 
         self.inner_dim = 100
         self.main = nn.Sequential(
-            nn.Linear(input_dim+2, self.inner_dim, bias=set_bias),
+            nn.Linear(input_dim+2, self.inner_dim, bias=bias_d),
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, self.inner_dim, bias=set_bias),
+            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, 1, bias=set_bias),
+            nn.Linear(self.inner_dim, 1, bias=bias_d),
             nn.Sigmoid()
         )
 
 
     def forward(self, input, labels):
         input = input.view(-1, self.input_dim)
+
         labels = labels.view(-1, 1)*2*np.pi
         input = torch.cat((input, self.radius*torch.sin(labels), self.radius*torch.cos(labels)), 1)
 

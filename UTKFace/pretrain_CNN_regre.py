@@ -4,12 +4,9 @@ Pre-train a CNN on the whole dataset for evaluation purpose
 
 """
 import os
-wd = '/home/xin/OneDrive/Working_directory/Continuous_cGAN/UTKFace'
-
 import argparse
 import shutil
 import os
-os.chdir(wd)
 import timeit
 import torch
 import torchvision
@@ -27,8 +24,7 @@ from tqdm import tqdm
 import gc
 import h5py
 
-from models import *
-from utils import IMGs_dataset
+
 
 
 #############################
@@ -36,6 +32,8 @@ from utils import IMGs_dataset
 #############################
 
 parser = argparse.ArgumentParser(description='Pre-train CNNs')
+parser.add_argument('--root_path', type=str, default='')
+parser.add_argument('--data_path', type=str, default='')
 parser.add_argument('--CNN', type=str, default='ResNet34_regre',
                     help='CNN for training; ResNetXX')
 parser.add_argument('--epochs', type=int, default=200, metavar='N',
@@ -54,7 +52,15 @@ parser.add_argument('--CVMode', action='store_true', default=False,
                    help='CV mode?')
 parser.add_argument('--img_size', type=int, default=64, metavar='N',
                     choices=[64,128])
+parser.add_argument('--min_age', type=int, default=1, metavar='N')
+parser.add_argument('--max_age', type=int, default=60, metavar='N')
 args = parser.parse_args()
+
+
+wd = args.root_path
+os.chdir(wd)
+from models import *
+from utils import IMGs_dataset
 
 
 # cuda
@@ -68,10 +74,10 @@ torch.backends.cudnn.deterministic = True
 np.random.seed(args.seed)
 
 # directories for checkpoint, images and log files
-save_models_folder = wd + '/Output/saved_models/'
+save_models_folder = wd + '/output/saved_models/'
 os.makedirs(save_models_folder, exist_ok=True)
 
-save_logs_folder = wd + '/Output/saved_logs/'
+save_logs_folder = wd + '/output/saved_logs/'
 os.makedirs(save_logs_folder, exist_ok=True)
 
 
@@ -79,30 +85,48 @@ os.makedirs(save_logs_folder, exist_ok=True)
 # Data
 ###########################################################################################################
 # data loader
-data_filename = wd+'/data/UTKFace_' + str(args.img_size) + 'x' + str(args.img_size) + '.h5'
+data_filename = args.data_path + '/UTKFace_' + str(args.img_size) + 'x' + str(args.img_size) + '.h5'
 hf = h5py.File(data_filename, 'r')
 labels = hf['labels'][:]
 labels = labels.astype(np.float)
 images = hf['images'][:]
 hf.close()
+
+
+# subset of UTKFace
+selected_labels = np.arange(args.min_age, args.max_age+1)
+for i in range(len(selected_labels)):
+    curr_label = selected_labels[i]
+    index_curr_label = np.where(labels==curr_label)[0]
+    if i == 0:
+        images_subset = images[index_curr_label]
+        labels_subset = labels[index_curr_label]
+    else:
+        images_subset = np.concatenate((images_subset, images[index_curr_label]), axis=0)
+        labels_subset = np.concatenate((labels_subset, labels[index_curr_label]))
+# for i
+images = images_subset
+labels = labels_subset
+del images_subset, labels_subset; gc.collect()
+
 N_all = len(images)
 assert len(images) == len(labels)
 
 # normalize to [0, 1]
-min_label = np.min(labels)
-labels += np.abs(min_label)
+# min_label = np.min(labels)
+# labels += np.abs(min_label)
 max_label = np.max(labels)
 labels /= max_label
 
 
 # define training and validation sets
 # when CV, bin labels into 100 classes and for each class, select 5 images as validation image.
-# this step is to avoid only selecting images with almost zero angles for validation since we have a lot of images with almost zero angles.
+# this step is to avoid only selecting images with almost zero ages for validation since we have a lot of images with almost zero ages.
 if args.CVMode:
-    num_classes = int(np.max(labels))
+    num_classes = len(list(set(labels)))
     n_valid_img_per_class = 10
 
-    ## convert steering angles to class labels (for CV only)
+    ## convert age to class labels (for CV only)
     label2class = dict()
     unique_labels = np.sort(np.array(list(set(labels))))
     num_unique_labels = len(unique_labels)
@@ -223,11 +247,12 @@ if args.CVMode:
                 labels = labels.type(torch.float).view(-1).cpu().numpy()
                 outputs,_ = net(images)
                 outputs = outputs.view(-1).cpu().numpy()
+                labels = labels * max_label
+                outputs = outputs * max_label
                 abs_diff_avg += np.sum(np.abs(labels-outputs))
                 total += len(labels)
 
-            # output = abs_diff_avg/total
-            output = abs_diff_avg/total * max_label - np.abs(min_label)
+            output = abs_diff_avg/total
 
             if verbose:
                 print('Validation Average Absolute Difference: {}'.format(output))
@@ -245,7 +270,7 @@ net, net_name = net_initialization(args.CNN, ngpu = ngpu)
 criterion = nn.MSELoss()
 optimizer = torch.optim.SGD(net.parameters(), lr = args.base_lr, momentum= 0.9, weight_decay=args.weight_dacay)
 
-filename_ckpt = save_models_folder + '/ckpt_' + net_name + '_epoch_' + str(args.epochs) +  '_SEED_' + str(args.seed) + '_img_size_' + str(args.img_size) + '_CVMode_' + str(args.CVMode)
+filename_ckpt = save_models_folder + '/ckpt_' + net_name + '_epoch_' + str(args.epochs) +  '_seed_' + str(args.seed) + '_CVMode_' + str(args.CVMode) + '.pth'
 
 
 # training
@@ -263,6 +288,8 @@ if not os.path.isfile(filename_ckpt):
 else:
     print("\n Ckpt already exists")
     print("\n Loading...")
+    checkpoint = torch.load(filename_ckpt)
+    net.load_state_dict(checkpoint['net_state_dict'])
 torch.cuda.empty_cache()#release GPU mem which is  not references
 
 
