@@ -1,40 +1,70 @@
-# Continuous cGAN
+# Continuous Conditional GAN (CcGAN)
 
-Onenote address: https://1drv.ms/u/s!Arj2pETbYnWQo5dkN7nmDPnGFoz-aw?e=r8JhnH
+If you use this code, please cite
+```text
+placeholder...
+```
+
 
 # 1. Datasets
-## Cell-200 Dataset (h5 file)
-https://1drv.ms/u/s!Arj2pETbYnWQruNqsAZnAgybDWSqxQ?e=ZSZsdr
+## The RC-49 Dataset (h5 file)
+https://1drv.ms/u/s!Arj2pETbYnWQr7MY2Pr5qipSUpZKEQ?e=aRym3k <br />
 
-## Steering Angle Dataset
-https://github.com/SullyChen/driving-datasets 
+Download 'RC-49_64x64.h5' and put it in './improved_CcGAN/dataset/RC-49'
 
+## The preprocessed UTKFace Dataset (h5 file)
+https://1drv.ms/u/s!Arj2pETbYnWQr7MW_sGY9tJC4G3eMw?e=ohhRTe <br />
 
+Download 'UTKFace_64x64.h5' and put it in './improved_CcGAN/dataset/UTKFace'
 
-# 2. Experiments
+## The Cell-200 dataset (h5 file)
+https://1drv.ms/u/s!Arj2pETbYnWQr8tDP9Etf16nWddoTQ <br />
 
-## 2.1 Simulation: Gaussians on a unit circle
-Refer to https://docs.google.com/spreadsheets/d/1bWYXQBbMjRaxizWJndddFJJi-r1L0d6qB6cto34ICvw/edit?usp=sharing
+Download 'Cell200_64x64.h5' and put it in './improved_CcGAN/dataset/Cell200'
 
-## Training data
-![](./images/Simulation/samples_train_with_means_nSim_0.png)
+## The Steering Angle dataset (h5 file)
+For CcGAN, AE, and Regression CNN training: <br />
+https://1drv.ms/u/s!Arj2pETbYnWQr7Mdwe6H-IS0YwXh3A?e=U0BiIq <br />
 
-## cGAN
-![](./images/Simulation/cGAN_real_fake_samples_nSim_0.png)
+For Clssification CNN training: <br />
+https://1drv.ms/u/s!Arj2pETbYnWQr8xEgY3ZHSe2b1CHlQ?e=SE7pv6 <br />
 
-## HVDL: sigma and kappa are computed base on the rule of thumb rule
-![](./images/Simulation/CcGAN_real_fake_samples_hard_nSim_0.png)
-
-## SVDL: sigma and kappa are computed base on the rule of thumb rule
-![](./images/Simulation/CcGAN_real_fake_samples_soft_nSim_0.png)
-
+Download 'SteeringAngle_64x64.h5' and 'SteeringAngle_5_scenes_64x64' and put them in './improved_CcGAN/dataset/SteeringAngle'
 
 
-## 2.2 Cell-200
-Refer to https://docs.google.com/spreadsheets/d/13S9xVsWKAMDdc34ke8CZIvxiU3vACaCr1EWi_B_xXFE/edit?usp=sharing 
+# 2. Sample Usage
 
-## Data generation for 10 unseen cell counts
-![](./images/Cell200/Cell200_comparison.png)
+If a folder has 'improved' in its name, this folder corresponds to a ILI-based CcGAN; otherwise, a NLI-based CcGAN.
 
-## CcGAN: Fix z but vary y
-![](./images/Cell200/Cell200_fixed_z_continuous_label.png)
+## 2.1 Simulation ('./improved_CcGAN/Simulation')
+First, set the ROOT_PATH in the './scripts/run_train.sh' to yours. 
+
+Then, run 'run_train.sh'.
+
+
+## 2.2 RC-49 ('./improved_CcGAN/RC-49' and './improved_CcGAN/RC-49-improved'')
+First, set the ROOT_PATH and DATA_PATH in the './scripts/run_train.sh' to yours. 
+
+Then, run 'run_train.sh'.
+
+
+## 2.3 UTKFace ('./improved_CcGAN/UTKFace' and './improved_CcGAN/UTKFace-improved')
+First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours. 
+
+Then, run 'run_train.sh'.
+
+
+## 2.4 Cell-200 ('./improved_CcGAN/Cell200' and './improved_CcGAN/Cell200-improved')
+First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours. 
+
+Then, run 'run_train.sh'.
+
+
+## 2.5 Steering Angle ('./improved_CcGAN/SteeringAngle' and './improved_CcGAN/SteeringAngle-improved')
+First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours. 
+
+Then, run 'run_train.sh'.
+
+
+# 3. NIQE
+The code for computing NIQE is in './improved_CcGAN/NIQE'. Corresponding tutorial will be provided soon.
