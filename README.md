@@ -37,7 +37,9 @@ Download 'SteeringAngle_64x64.h5' and 'SteeringAngle_5_scenes_64x64' and put the
 If a folder has 'improved' in its name, this folder corresponds to a ILI-based CcGAN; otherwise, a NLI-based CcGAN.
 
 ## 2.1 Simulation ('./improved_CcGAN/Simulation')
-Run './scripts/run_train.sh'.
+First, set the ROOT_PATH and DATA_PATH in the './scripts/run_train.sh' to yours. 
+
+Then, run 'run_train.sh'.
 
 
 ## 2.2 RC-49 ('./improved_CcGAN/RC-49' and './improved_CcGAN/RC-49-improved'')
