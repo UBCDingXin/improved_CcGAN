@@ -90,7 +90,8 @@ def cal_FID(PreNetFID, IMGSr, IMGSg, batch_size = 500, resize = None):
         test_img = torch.from_numpy(IMGSr[0].reshape((1,nc,img_size,img_size))).type(torch.float).cuda()
         if resize is not None:
             test_img = nn.functional.interpolate(test_img, size = resize, scale_factor=None, mode='bilinear', align_corners=False)
-        _, test_features = PreNetFID(test_img)
+        # _, test_features = PreNetFID(test_img)
+        test_features = PreNetFID(test_img)
         d = test_features.shape[1] #length of extracted features
 
     Xr = np.zeros((nr, d))
@@ -104,7 +105,8 @@ def cal_FID(PreNetFID, IMGSr, IMGSg, batch_size = 500, resize = None):
             imgr_tensor = torch.from_numpy(IMGSr[tmp:(tmp+batch_size)]).type(torch.float).cuda()
             if resize is not None:
                 imgr_tensor = nn.functional.interpolate(imgr_tensor, size = resize, scale_factor=None, mode='bilinear', align_corners=False)
-            _, Xr_tmp = PreNetFID(imgr_tensor)
+            # _, Xr_tmp = PreNetFID(imgr_tensor)
+            Xr_tmp = PreNetFID(imgr_tensor)
             Xr[tmp:(tmp+batch_size)] = Xr_tmp.detach().cpu().numpy()
             tmp+=batch_size
             # pb1.update(min(float(i)*100/(nr//batch_size), 100))
@@ -118,7 +120,8 @@ def cal_FID(PreNetFID, IMGSr, IMGSg, batch_size = 500, resize = None):
             imgg_tensor = torch.from_numpy(IMGSg[tmp:(tmp+batch_size)]).type(torch.float).cuda()
             if resize is not None:
                 imgg_tensor = nn.functional.interpolate(imgg_tensor, size = resize, scale_factor=None, mode='bilinear', align_corners=False)
-            _, Xg_tmp = PreNetFID(imgg_tensor)
+            # _, Xg_tmp = PreNetFID(imgg_tensor)
+            Xg_tmp = PreNetFID(imgg_tensor)
             Xg[tmp:(tmp+batch_size)] = Xg_tmp.detach().cpu().numpy()
             tmp+=batch_size
             # pb2.update(min(float(j)*100/(ng//batch_size), 100))
