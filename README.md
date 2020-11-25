@@ -2,7 +2,12 @@
 
 If you use this code, please cite
 ```text
-placeholder...
+@article{ding2020ccgan,
+  title={CcGAN: Continuous Conditional Generative Adversarial Networks for Image Generation},
+  author={Ding, Xin and Wang, Yongwei and Xu, Zuheng and Welch, William J and Wang, Z Jane},
+  journal={arXiv preprint arXiv:2011.07466},
+  year={2020}
+}
 ```
 
 
