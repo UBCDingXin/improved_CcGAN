@@ -2,11 +2,13 @@
 
 If you use this code, please cite
 ```text
-@article{ding2020ccgan,
-  title={CcGAN: Continuous Conditional Generative Adversarial Networks for Image Generation},
-  author={Ding, Xin and Wang, Yongwei and Xu, Zuheng and Welch, William J and Wang, Z Jane},
-  journal={arXiv preprint arXiv:2011.07466},
-  year={2020}
+@misc{ding2020continuous,
+      title={Continuous Conditional Generative Adversarial Networks for Image Generation: Novel Losses and Label Input Mechanisms}, 
+      author={Xin Ding and Yongwei Wang and Zuheng Xu and William J. Welch and Z. Jane Wang},
+      year={2020},
+      eprint={2011.07466},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
 }
 ```
 
