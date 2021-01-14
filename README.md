@@ -2,6 +2,15 @@
 
 If you use this code, please cite
 ```text
+@inproceedings{
+      ding2021ccgan,
+      title={Cc{\{}GAN{\}}: Continuous Conditional Generative Adversarial Networks for Image Generation},
+      author={Xin Ding and Yongwei Wang and Zuheng Xu and William J Welch and Z. Jane Wang},
+      booktitle={International Conference on Learning Representations},
+      year={2021},
+      url={https://openreview.net/forum?id=PrzjugOsDeE}
+}
+
 @misc{ding2020continuous,
       title={Continuous Conditional Generative Adversarial Networks for Image Generation: Novel Losses and Label Input Mechanisms}, 
       author={Xin Ding and Yongwei Wang and Zuheng Xu and William J. Welch and Z. Jane Wang},
