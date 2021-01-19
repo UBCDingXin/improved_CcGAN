@@ -1,4 +1,4 @@
-# Continuous Conditional GAN (CcGAN)
+# Continuous Conditional Generative Adversarial Networks (CcGAN)
 
 If you use this code, please cite
 ```text
