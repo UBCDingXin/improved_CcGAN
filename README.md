@@ -109,7 +109,7 @@ Then, run 'run_train.sh'.
 # 3. NIQE
 The code for computing NIQE is in './improved_CcGAN/NIQE'.
 
-An tutorial to compute NIQE for RC-49 will be provided at https://github.com/UBCDingXin/cDRE-based_Subsampling_cGANS/blob/main/RC-49/NIQE/
+A tutorial to compute NIQE for RC-49 will be provided at https://github.com/UBCDingXin/cDRE-based_Subsampling_cGANS/blob/main/RC-49/NIQE/
 
 
 # 4. Some Results
