@@ -1,5 +1,6 @@
-# Continuous Conditional Generative Adversarial Networks (CcGAN)
+# Continuous Conditional Generative Adversarial Networks
 
+This repository provides the source codes for the experiments in our papers for CcGANs. <br />
 If you use this code, please cite
 ```text
 @inproceedings{
@@ -12,7 +13,7 @@ If you use this code, please cite
 }
 
 @misc{ding2020continuous,
-      title={Continuous Conditional Generative Adversarial Networks for Image Generation: Novel Losses and Label Input Mechanisms}, 
+      title={Continuous Conditional Generative Adversarial Networks for Image Generation: Novel Losses and Label Input Mechanisms},
       author={Xin Ding and Yongwei Wang and Zuheng Xu and William J. Welch and Z. Jane Wang},
       year={2020},
       eprint={2011.07466},
@@ -20,6 +21,15 @@ If you use this code, please cite
       primaryClass={cs.CV}
 }
 ```
+
+# Hard Vicinal Discriminator loss (HVDL) and Soft Vicinal Discriminator loss (SVDL)
+
+
+# Naive Label Input (NLI) and Improved Label Input (ILI) mechanisms
+
+Solarized dark             |  Solarized Ocean
+:-------------------------:|:-------------------------:
+![](images/vanilla_label_input_G.png)  |  ![](images/vanilla_label_input_D.png)
 
 
 # 1. Datasets
@@ -53,31 +63,31 @@ Download 'SteeringAngle_64x64.h5' and 'SteeringAngle_5_scenes_64x64' and put the
 If a folder has 'improved' in its name, this folder corresponds to a ILI-based CcGAN; otherwise, a NLI-based CcGAN.
 
 ## 2.1 Simulation ('./improved_CcGAN/Simulation')
-First, set the ROOT_PATH and DATA_PATH in the './scripts/run_train.sh' to yours. 
+First, set the ROOT_PATH and DATA_PATH in the './scripts/run_train.sh' to yours.
 
 Then, run 'run_train.sh'.
 
 
 ## 2.2 RC-49 ('./improved_CcGAN/RC-49' and './improved_CcGAN/RC-49-improved'')
-First, set the ROOT_PATH and DATA_PATH in the './scripts/run_train.sh' to yours. 
+First, set the ROOT_PATH and DATA_PATH in the './scripts/run_train.sh' to yours.
 
 Then, run 'run_train.sh'.
 
 
 ## 2.3 UTKFace ('./improved_CcGAN/UTKFace' and './improved_CcGAN/UTKFace-improved')
-First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours. 
+First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours.
 
 Then, run 'run_train.sh'.
 
 
 ## 2.4 Cell-200 ('./improved_CcGAN/Cell200' and './improved_CcGAN/Cell200-improved')
-First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours. 
+First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours.
 
 Then, run 'run_train.sh'.
 
 
 ## 2.5 Steering Angle ('./improved_CcGAN/SteeringAngle' and './improved_CcGAN/SteeringAngle-improved')
-First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours. 
+First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours.
 
 Then, run 'run_train.sh'.
 
