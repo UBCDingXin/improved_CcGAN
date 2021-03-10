@@ -24,6 +24,9 @@ If you use this code, please cite
 
 # Hard Vicinal Discriminator loss (HVDL) and Soft Vicinal Discriminator loss (SVDL)
 
+<p align="center">
+  <img src="images/HVDL_and_SVDL.png">
+</p>
 
 # Naive Label Input (NLI) and Improved Label Input (ILI) mechanisms
 
