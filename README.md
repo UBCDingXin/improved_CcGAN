@@ -31,6 +31,10 @@ NLI for G                  |  NLI for D
 :-------------------------:|:-------------------------:
 ![](images/vanilla_label_input_G.png)  |  ![](images/vanilla_label_input_D.png)
 
+CNN for label embedding in ILI   |  The embedding network in ILI
+:-------------------------:|:-------------------------:
+![](images/pre-trained_CNN_for_label_embedding.png)  |  ![](images/label_embedding_network.png)
+
 ILI for G                  |  ILI for D
 :-------------------------:|:-------------------------:
 ![](images/improved_label_input_G.png)  |  ![](images/improved_label_input_D.png)
