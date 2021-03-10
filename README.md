@@ -115,20 +115,23 @@ A tutorial to compute NIQE for RC-49 will be provided at https://github.com/UBCD
 # 4. Some Results
 <p align="center">
   <img src="images/RC-49_line_graphs.png">
-  Line graphs for the RC-49 experiment.
+  **Line graphs for the RC-49 experiment.**
 </p>
 
 <p align="center">
   <img src="images/UTKFace_line_graphs.png">
-  Line graphs for the UTKFace experiment.
+  **Line graphs for the UTKFace experiment.**
 </p>
 
 <p align="center">
   <img src="images/Cell200_line_graphs.png">
-  Line graphs for the Cell-200 experiment.
+  **Line graphs for the Cell-200 experiment.**
 </p>
 
 <p align="center">
   <img src="images/SteeringAngle_line_graphs.png">
-  Line graphs for the Steering Angle experiment.
+  **Line graphs for the Steering Angle experiment.**
 </p>
+
+
+<h3 style="color:#ff0000">Danger</h3>
