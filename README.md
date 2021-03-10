@@ -31,7 +31,7 @@ NLI for G                  |  NLI for D
 :-------------------------:|:-------------------------:
 ![](images/vanilla_label_input_G.png)  |  ![](images/vanilla_label_input_D.png)
 
-NLI for G                  |  NLI for D
+ILI for G                  |  ILI for D
 :-------------------------:|:-------------------------:
 ![](images/improved_label_input_G.png)  |  ![](images/improved_label_input_D.png)
 
