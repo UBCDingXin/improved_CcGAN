@@ -110,7 +110,7 @@ Then, run 'run_train.sh'.
 The code for computing NIQE is in './improved_CcGAN/NIQE'.
 
 A tutorial to compute NIQE for RC-49 will be provided at https://github.com/UBCDingXin/cDRE-based_Subsampling_cGANS/blob/main/RC-49/NIQE/
-
+> Rename the folder containing fake images to fake_images and then compress fake_images with a filename fake_images.zip. Move fake_images.zip to ./RC-49/NIQE/fake_data. Then, run ./RC-49/NIQE/run_test.sh.
 
 # 4. Some Results
 <p align="center">
