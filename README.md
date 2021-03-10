@@ -46,6 +46,8 @@ ILI for G                  |  ILI for D
 :-------------------------:|:-------------------------:
 ![](images/improved_label_input_G.png)  |  ![](images/improved_label_input_D.png)
 
+--------------------------------------------------------
+
 # 1. Datasets
 ## The RC-49 Dataset (h5 file)
 https://1drv.ms/u/s!Arj2pETbYnWQr7MY2Pr5qipSUpZKEQ?e=QTbiq2 <br />
@@ -71,6 +73,8 @@ https://1drv.ms/u/s!Arj2pETbYnWQr8xEgY3ZHSe2b1CHlQ?e=SE7pv6 <br />
 
 Download 'SteeringAngle_64x64.h5' and 'SteeringAngle_5_scenes_64x64' and put them in './improved_CcGAN/dataset/SteeringAngle'
 
+
+--------------------------------------------------------
 
 # 2. Sample Usage
 
@@ -105,12 +109,15 @@ First, set the ROOT_PATH and DATA_PATH in './scripts/run_train.sh' to yours.
 
 Then, run 'run_train.sh'.
 
+--------------------------------------------------------
 
 # 3. NIQE
 The code for computing NIQE is in './improved_CcGAN/NIQE'.
 
-A tutorial to compute NIQE for RC-49 will be provided at https://github.com/UBCDingXin/cDRE-based_Subsampling_cGANS/blob/main/RC-49/NIQE/
+A simpler code to compute NIQE for RC-49 is provided at https://github.com/UBCDingXin/cDRE-based_Subsampling_cGANS/blob/main/RC-49/NIQE/
 > Rename the folder containing fake images to fake_images and then compress fake_images with a filename fake_images.zip. Move fake_images.zip to ./RC-49/NIQE/fake_data. Then, run ./RC-49/NIQE/run_test.sh.
+
+--------------------------------------------------------
 
 # 4. Some Results
 <p align="center">
