@@ -22,7 +22,7 @@ If you use this code, please cite
 }
 ```
 
-# Hard Vicinal Discriminator loss (HVDL) and Soft Vicinal Discriminator loss (SVDL)
+# Hard Vicinal Discriminator Loss (HVDL) and Soft Vicinal Discriminator Loss (SVDL)
 
 <p align="center">
   <img src="images/HVDL_and_SVDL.png">
@@ -32,7 +32,7 @@ An example of the hard vicinity                  |  An example of the soft vicin
 :-------------------------:|:-------------------------:
 ![](images/visualization_HVE.png)  |  ![](images/visualization_SVE.png)
 
-# Naive Label Input (NLI) and Improved Label Input (ILI) mechanisms
+# Naive Label Input (NLI) and Improved Label Input (ILI) Mechanisms
 
 NLI for G                  |  NLI for D
 :-------------------------:|:-------------------------:
@@ -108,3 +108,14 @@ Then, run 'run_train.sh'.
 
 # 3. NIQE
 The code for computing NIQE is in './improved_CcGAN/NIQE'.
+
+An tutorial to compute NIQE for RC-49 will be provided at https://github.com/UBCDingXin/cDRE-based_Subsampling_cGANS/blob/main/RC-49/NIQE/
+
+
+# 4. Some Results
+<p align="center">
+  <img src="images/RC-49_line_graphs.png">
+  <img src="images/UTKFace_line_graphs.png">
+  <img src="images/Cell200_line_graphs.png">
+  <img src="images/SteeringAngle_line_graphs.png">
+</p>
