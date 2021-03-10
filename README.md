@@ -12,13 +12,11 @@ If you use this code, please cite
       url={https://openreview.net/forum?id=PrzjugOsDeE}
 }
 
-@misc{ding2020continuous,
-      title={Continuous Conditional Generative Adversarial Networks for Image Generation: Novel Losses and Label Input Mechanisms},
-      author={Xin Ding and Yongwei Wang and Zuheng Xu and William J. Welch and Z. Jane Wang},
-      year={2020},
-      eprint={2011.07466},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
+@article{ding2020continuous,
+  title={Continuous Conditional Generative Adversarial Networks for Image Generation: Novel Losses and Label Input Mechanisms},
+  author={Xin Ding and Yongwei Wang and Zuheng Xu and William J. Welch and Z. Jane Wang},
+  journal={arXiv preprint arXiv:2011.07466},
+  year={2020}
 }
 ```
 
