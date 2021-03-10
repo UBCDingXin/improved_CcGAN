@@ -28,6 +28,10 @@ If you use this code, please cite
   <img src="images/HVDL_and_SVDL.png">
 </p>
 
+An example of the hard vicinity                  |  An example of the soft vicinity
+:-------------------------:|:-------------------------:
+![](images/visualization_HVE.png)  |  ![](images/visualization_SVE.png)
+
 # Naive Label Input (NLI) and Improved Label Input (ILI) mechanisms
 
 NLI for G                  |  NLI for D
@@ -103,4 +107,4 @@ Then, run 'run_train.sh'.
 
 
 # 3. NIQE
-The code for computing NIQE is in './improved_CcGAN/NIQE'. Corresponding tutorial will be provided soon.
+The code for computing NIQE is in './improved_CcGAN/NIQE'.
