@@ -27,10 +27,13 @@ If you use this code, please cite
 
 # Naive Label Input (NLI) and Improved Label Input (ILI) mechanisms
 
-Solarized dark             |  Solarized Ocean
+NLI for G                  |  NLI for D
 :-------------------------:|:-------------------------:
 ![](images/vanilla_label_input_G.png)  |  ![](images/vanilla_label_input_D.png)
 
+NLI for G                  |  NLI for D
+:-------------------------:|:-------------------------:
+![](images/improved_label_input_G.png)  |  ![](images/improved_label_input_D.png)
 
 # 1. Datasets
 ## The RC-49 Dataset (h5 file)
