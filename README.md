@@ -52,6 +52,7 @@ ILI for G                  |  ILI for D
 argparse>=1.1, h5py>=2.10.0, matplotlib>=3.2.1, numpy>=1.18.5, Pillow>=7.0.0, python=3.8.5, torch>=1.5.0, torchvision>=0.6.0,
 tqdm>=4.46.1
 
+Matlab 2017 with the image processing toolbox
 
 
 --------------------------------------------------------
