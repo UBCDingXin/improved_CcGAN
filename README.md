@@ -80,7 +80,7 @@ https://1drv.ms/u/s!Arj2pETbYnWQr7Mdwe6H-IS0YwXh3A?e=U0BiIq <br />
 For Clssification CNN training: <br />
 https://1drv.ms/u/s!Arj2pETbYnWQr8xEgY3ZHSe2b1CHlQ?e=SE7pv6 <br />
 
-Download `SteeringAngle_64x64.h5` and 'SteeringAngle_5_scenes_64x64' and put them in `./improved_CcGAN/dataset/SteeringAngle`.
+Download `SteeringAngle_64x64.h5` and `SteeringAngle_5_scenes_64x64`, and put them in `./improved_CcGAN/dataset/SteeringAngle`.
 
 
 --------------------------------------------------------
