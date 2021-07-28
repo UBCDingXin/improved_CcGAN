@@ -25,6 +25,8 @@ If you use this code, please cite
 }
 ```
 
+--------------------------------------------------------
+
 # Repository Structure
 
 ```
@@ -74,6 +76,7 @@ If you use this code, please cite
         └── NIQE_128x128
 ```
 
+--------------------------------------------------------
 
 # Hard Vicinal Discriminator Loss (HVDL) and Soft Vicinal Discriminator Loss (SVDL)
 
@@ -203,9 +206,6 @@ In high-resolution experiments, we only compare CcGAN (SVDL+ILI) with cGAN (K cl
 
 ### Steering Angle (128x128)
 `./SteeringAngle/SteeringAngle_128x128\CcGAN-improved`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes), cGAN (concat) and CcGAN (SVDL+ILI). <br />
-
-
-
 
 
 --------------------------------------------------------
