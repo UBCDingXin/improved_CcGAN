@@ -1,5 +1,8 @@
 # Continuous Conditional Generative Adversarial Networks
 
+**[NEWS! 2021-07-27]** We add a new baseline cGAN (concat) which directly appends regression labels to the input of generator and the last hidden map of discriminator. cGAN (K classes) and cGAN (concat) are two modifications on conventional cGANs and they show two types of failures of convention cGANs.
+**[NEWS! 2021-07-28]** We provide codes for training CcGAN on high-resolution RC-49, UTKFace, and Steering Angle where the resolution varies from 128x128 to 256x256.
+
 This repository provides the source codes for the experiments in our papers for CcGANs. <br />
 If you use this code, please cite
 ```text
@@ -19,6 +22,56 @@ If you use this code, please cite
   year={2020}
 }
 ```
+
+# Repository Structure
+
+```
+├── RC-49
+│   ├── RC-49_64x64
+|   │   ├──CcGAN
+|   |   ├──CcGAN-improved
+|   |   └──cGAN-concat
+│   ├── RC-49_128x128
+|   |   └──CcGAN-improved
+│   └── RC-49_256x256
+|       └──CcGAN-improved
+├── UTKFace
+│   ├── UTKFace_64x64
+|   │   ├──CcGAN
+|   │   ├──CcGAN-improved
+|   │   └──cGAN-concat
+│   ├── UTKFace_128x128
+|   │   └──CcGAN-improved
+│   └── UTKFace_192x192
+|       └──CcGAN-improved
+├── Cell-200
+│   └── Cell-200_64x64
+|       ├──CcGAN
+|       ├──CcGAN-improved
+|       └──cGAN-concat
+├── SteeringAngle
+│   ├── SteeringAngle_64x64
+|   |   ├──CcGAN
+|   |   ├──CcGAN-improved
+|   |   └──cGAN-concat
+│   └── SteeringAngle_128x128
+|       └──CcGAN-improved
+└── NIQE
+    ├── RC-49
+    │   ├── NIQE_64x64
+    │   ├── NIQE_128x128
+    │   ├── NIQE_256x256
+    ├── UTKFace
+    │   ├── NIQE_64x64
+    │   ├── NIQE_128x128
+    │   └── NIQE_256x256
+    ├── Cell-200
+    │   └── NIQE_64x64
+    └── SteeringAngle
+        ├── NIQE_64x64
+        └── NIQE_128x128
+```
+
 
 # Hard Vicinal Discriminator Loss (HVDL) and Soft Vicinal Discriminator Loss (SVDL)
 
@@ -48,87 +101,119 @@ ILI for G                  |  ILI for D
 
 -------------------------------
 
-## Requirements
-argparse>=1.1, h5py>=2.10.0, matplotlib>=3.2.1, numpy>=1.18.5, Pillow>=7.0.0, python=3.8.5, torch>=1.5.0, torchvision>=0.6.0,
-tqdm>=4.46.1
-
-Matlab 2017 with the image processing toolbox
+# Software Requirements
+| Item | Version |
+|---|---|
+|Python|3.9.5|
+| argparse | 1.1 |
+| CUDA  | 11.4 |
+| cuDNN| 8.2|
+| numpy | 1.14 |
+| torch | 1.9.0 |
+| torchvision | 0.10.0 |
+| Pillow | 8.2.0 |
+| matplotlib | 3.4.2 |
+| tqdm | 4.61.1 |
+| h5py | 3.3.0 |
+| Matlab | 2020a |
 
 
 --------------------------------------------------------
 
-# 1. Datasets
+# Datasets
 ## The RC-49 Dataset (h5 file)
-https://1drv.ms/u/s!Arj2pETbYnWQr7MY2Pr5qipSUpZKEQ?e=QTbiq2 <br />
-
-Download `RC-49_64x64.h5` and put it in `./improved_CcGAN/dataset/RC-49`.
+Download the following h5 files and put them in `./datasets/RC-49`.
+### RC-49 (64x64)
+[RC-49_64x64_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstI0OuDMqpEZA80tRQ?e=fJJbWw) <br />
+### RC-49 (128x128)
+[RC-49_128x128_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstIu_hXCzzhy6OEf9A?e=eEXl8n) <br />
+### RC-49 (256x256)
+[RC-49_256x256_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstJyYe-EmFyKpYbBWw?e=5rYCCD) <br />
 
 ## The preprocessed UTKFace Dataset (h5 file)
-https://1drv.ms/u/s!Arj2pETbYnWQr7MW_sGY9tJC4G3eMw?e=ohhRTe <br />
-
-Download `UTKFace_64x64.h5` and put it in `./improved_CcGAN/dataset/UTKFace`.
+Download the following h5 files and put them in `./datasets/UTKFace`.
+### UTKFace (64x64)
+[UTKFace_64x64_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstIzurW-LCFpGz5D7Q?e=X23ybx) <br />
+### UTKFace (128x128)
+[UTKFace_128x128_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstJGpTgNYrHE8DgDzA?e=d7AeZq) <br />
+### UTKFace (256x256)
+[UTKFace_256x256_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstY8hLN3lWEyX0lNLA?e=YBpYwv) <br />
 
 ## The Cell-200 dataset (h5 file)
-https://1drv.ms/u/s!Arj2pETbYnWQr8tDP9Etf16nWddoTQ <br />
-
-Download `Cell200_64x64.h5` and put it in `./improved_CcGAN/dataset/Cell200`.
+Download the following h5 files and put them in `./datasets/Cell-200`.
+[Cell-200_64x64_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstIt73ZfGOAjBMiTmQ?e=cvxFIN) <br />
 
 ## The Steering Angle dataset (h5 file)
-For CcGAN, AE, and Regression CNN training: <br />
-https://1drv.ms/u/s!Arj2pETbYnWQr7Mdwe6H-IS0YwXh3A?e=U0BiIq <br />
-
-For Clssification CNN training: <br />
-https://1drv.ms/u/s!Arj2pETbYnWQr8xEgY3ZHSe2b1CHlQ?e=SE7pv6 <br />
-
-Download `SteeringAngle_64x64.h5` and `SteeringAngle_5_scenes_64x64`, and put them in `./improved_CcGAN/dataset/SteeringAngle`.
+Download the following h5 files and put them in `./datasets/SteeringAngle`.
+### Steering Angle (64x64)
+[SteeringAngle_64x64_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstIyDTDpGA0CNiONkA?e=Ui5kUK) <br />
+[SteeringAngle_5_scenes_64x64_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstIv4_uR9Yi4SRgkBQ?e=jNFSlE) <br />
+### Steering Angle (128x128)
+[SteeringAngle_128x128_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstJ0j7rXhDtm6y4IcA?e=bLQh2e) <br />
+[SteeringAngle_5_scenes_128x128_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstIwwbbZ9fKHOgbE9A?e=qdoIx6) <br />
 
 
 --------------------------------------------------------
 
-# 2. Sample Usage
+# Sample Usage
 
-If a folder has 'improved' in its name, this folder corresponds to a ILI-based CcGAN; otherwise, a NLI-based CcGAN.
+run `./scripts/run_train.sh` in the following folders. Remember to set correct root path, data path, and checkpoint path. <br />
 
-## 2.1 Simulation (`./improved_CcGAN/Simulation`)
-First, set the ROOT_PATH and DATA_PATH in the `./scripts/run_train.sh` to yours.
+## Low-resolution experiments (64x64)
+Folders with name `CcGAN` are for the NLI-based CcGAN. Folders with name `CcGAN-improved` are for the ILI-based CcGAN. Foders with name `cGAN (concat)` are for the baseline cGAN (concat) [i.e., cGAN (concat) directly appends regression labels to the input of generator and the last hidden map of discriminator].
 
-Then, run `run_train.sh`.
+### Simulation (`./Simulation`): The Circular 2D Gaussians experiment in our ICLR paper.
+
+### RC-49 (64x64) (`./RC-49/RC-49_64x64`)
+`./RC-49/RC-49_64x64/CcGAN`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes) and NLI-based CcGAN. <br />
+`./RC-49/RC-49_64x64/CcGAN-improved`: Train cGAN (K classes) and ILI-based CcGAN. <br />
+`./RC-49/RC-49_64x64/cGAN-concat`: Train cGAN (concat). <br />
+
+### UTKFace (64x64) (`./UTKFace/UTKFace_64x64`)
+`./UTKFace/UTKFace_64x64/CcGAN`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes) and NLI-based CcGAN. <br />
+`./UTKFace/UTKFace_64x64/CcGAN-improved`: Train cGAN (K classes) and ILI-based CcGAN. <br />
+`./UTKFace/UTKFace_64x64/cGAN-concat`: Train cGAN (concat). <br />
+
+### Cell-200 (64x64) (`./Cell-200/Cell-200_64x64`)
+`./Cell-200/Cell-200_64x64/CcGAN`: Train AE for evaluation. Train cGAN (K classes) and NLI-based CcGAN. <br />
+`./Cell-200/Cell-200_64x64/CcGAN-improved`: Train cGAN (K classes) and ILI-based CcGAN. <br />
+
+### Steering Angle (64x64) (`./SteeringAngle/SteeringAngle_64x64`)
+`./SteeringAngle/SteeringAngle_64x64/CcGAN`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes) and NLI-based CcGAN. <br />
+`./SteeringAngle/SteeringAngle_64x64/CcGAN-improved`: Train cGAN (K classes) and ILI-based CcGAN. <br />
+`./SteeringAngle/SteeringAngle_64x64/cGAN-concat`: Train cGAN (concat). <br />
+
+## High-resolution experiments
+In high-resolution experiments, we only compare CcGAN (SVDL+ILI) with cGAN (K classes) and cGAN (concat). For all GANs, we use SAGAN as the backbone. We also use hinge loss and DiffAugment.
+
+### RC-49 (128x128)
+`./RC-49/RC-49_128x128\CcGAN-improved`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes), cGAN (concat) and CcGAN (SVDL+ILI). <br />
+
+### RC-49 (256x256)
+`./RC-49/RC-49_256x256\CcGAN-improved`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes), cGAN (concat) and CcGAN (SVDL+ILI). <br />
+
+### UTKFace (128x128)
+`./UTKFace/UTKFace_128x128\CcGAN-improved`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes), cGAN (concat) and CcGAN (SVDL+ILI). <br />
+
+### UTKFace (192x192)
+`./UTKFace/UTKFace_192x192\CcGAN-improved`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes), cGAN (concat) and CcGAN (SVDL+ILI). <br />
+
+### Steering Angle (128x128)
+`./SteeringAngle/SteeringAngle_128x128\CcGAN-improved`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes), cGAN (concat) and CcGAN (SVDL+ILI). <br />
 
 
-## 2.2 RC-49 (`./improved_CcGAN/RC-49` and `./improved_CcGAN/RC-49-improved`)
-First, set the ROOT_PATH and DATA_PATH in the `./scripts/run_train.sh` to yours.
-
-Then, run `run_train.sh`.
 
 
-## 2.3 UTKFace (`./improved_CcGAN/UTKFace` and `./improved_CcGAN/UTKFace-improved`)
-First, set the ROOT_PATH and DATA_PATH in `./scripts/run_train.sh` to yours.
-
-Then, run `run_train.sh`.
-
-
-## 2.4 Cell-200 (`./improved_CcGAN/Cell200` and `./improved_CcGAN/Cell200-improved`)
-First, set the ROOT_PATH and DATA_PATH in `./scripts/run_train.sh` to yours.
-
-Then, run `run_train.sh`.
-
-
-## 2.5 Steering Angle (`./improved_CcGAN/SteeringAngle` and `./improved_CcGAN/SteeringAngle-improved`)
-First, set the ROOT_PATH and DATA_PATH in `./scripts/run_train.sh` to yours.
-
-Then, run `run_train.sh`.
 
 --------------------------------------------------------
 
-# 3. NIQE
-The code for computing NIQE is in `./improved_CcGAN/NIQE`.
-
-A simpler code to compute NIQE for RC-49 is provided at https://github.com/UBCDingXin/cDRE-based_Subsampling_cGANS/blob/main/RC-49/NIQE/
-> Rename the folder containing fake images to fake_images and then compress fake_images with a filename fake_images.zip. Move fake_images.zip to ./RC-49/NIQE/fake_data. Then, run ./RC-49/NIQE/run_test.sh.
+# Computing NIQE
+The code for computing NIQE is in `./NIQE`. Let's take RC-49_128x128 (in `./NIQE/RC-49/NIQE_128x128`) as an example. First, create a folder `./NIQE/RC-49/NIQE_128x128/fake_data` where we store the folder concaining fake images generated from a CcGAN or a cGAN. Second, rename the folder containing fake images to `fake_images`, i.e., `./NIQE/RC-49/NIQE_128x128/fake_data/fake_images`. Third, unzip `./NIQE/RC-49/NIQE_128x128/models/unzip_this_file.zip` (containing pre-trained NIQE models). Fourth, run `./NIQE/RC-49/NIQE_128x128/run_test.bat`. Please note that in this directory, we only provide a Windows batch script to run the evaluation. Please modify it to fit Linux system.
 
 --------------------------------------------------------
 
-# 4. Some Results
+# Some Results
+## Line graphs for low-resolution experiments
 <p align="center">
   <img src="images/RC-49_line_graphs.png">
   Line graphs for the RC-49 experiment.
@@ -147,4 +232,16 @@ A simpler code to compute NIQE for RC-49 is provided at https://github.com/UBCDi
 <p align="center">
   <img src="images/SteeringAngle_line_graphs.png">
   Line graphs for the Steering Angle experiment.
+</p>
+
+
+## Example fake images from CcGAN in high-resolution experiments
+<p align="center">
+  <img src="images/RC-49_128_fake_images_grid_10x10.png">
+  Example 128X128 fake RC-49 images generated by CcGAN (SVDL+ILI) with angles varying from 4.5 to 85.5 (from top to bottom).
+</p>
+
+<p align="center">
+  <img src="images/UTKFace_192_fake_images_grid_10x10.png">
+  Example 192x192 fake UTKFace images generated by CcGAN (SVDL+ILI) with ages varying from 3 to 57 (from top to bottom).
 </p>
