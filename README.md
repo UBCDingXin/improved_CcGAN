@@ -1,7 +1,7 @@
 # Continuous Conditional Generative Adversarial Networks
 
 **[NEWS! 2021-07-27]** We add a new baseline cGAN (concat) which directly appends regression labels to the input of generator and the last hidden map of discriminator. cGAN (K classes) and cGAN (concat) are two modifications on conventional cGANs and they show two types of failures of convention cGANs. <br />
-**[NEWS! 2021-07-28]** We provide codes for training CcGAN on high-resolution RC-49, UTKFace, and Steering Angle where the resolution varies from 128x128 to 256x256. We also provide simplified codes for computing NIQE. 
+**[NEWS! 2021-07-28]** We provide codes for training CcGAN on high-resolution RC-49, UTKFace, and Steering Angle where the resolution varies from 128x128 to 256x256. We also provide simplified codes for computing NIQE.
 
 This repository provides the source codes for the experiments in our papers for CcGANs. <br />
 If you use this code, please cite
@@ -136,8 +136,8 @@ Download the following h5 files and put them in `./datasets/UTKFace`.
 [UTKFace_64x64_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstIzurW-LCFpGz5D7Q?e=X23ybx) <br />
 ### UTKFace (128x128)
 [UTKFace_128x128_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstJGpTgNYrHE8DgDzA?e=d7AeZq) <br />
-### UTKFace (256x256)
-[UTKFace_256x256_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstY8hLN3lWEyX0lNLA?e=YBpYwv) <br />
+### UTKFace (192x192)
+[UTKFace_192x192_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstY8hLN3lWEyX0lNLA?e=YBpYwv) <br />
 
 ## The Cell-200 dataset (h5 file)
 Download the following h5 files and put them in `./datasets/Cell-200`.
