@@ -140,7 +140,7 @@ Download the following h5 files and put them in `./datasets/UTKFace`.
 [UTKFace_192x192_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstY8hLN3lWEyX0lNLA?e=YBpYwv) <br />
 
 ## The Cell-200 dataset (h5 file)
-Download the following h5 files and put them in `./datasets/Cell-200`.
+Download the following h5 files and put them in `./datasets/Cell-200`. <br />
 [Cell-200_64x64_download_link](https://1drv.ms/u/s!Arj2pETbYnWQstIt73ZfGOAjBMiTmQ?e=cvxFIN) <br />
 
 ## The Steering Angle dataset (h5 file)
