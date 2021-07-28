@@ -1,7 +1,7 @@
 # Continuous Conditional Generative Adversarial Networks
 
 **[NEWS! 2021-07-27]** We add a new baseline cGAN (concat) which directly appends regression labels to the input of generator and the last hidden map of discriminator. cGAN (K classes) and cGAN (concat) are two modifications on conventional cGANs and they show two types of failures of convention cGANs. <br />
-**[NEWS! 2021-07-28]** We provide codes for training CcGAN on high-resolution RC-49, UTKFace, and Steering Angle where the resolution varies from 128x128 to 256x256. We also provide simplified codes for computing NIQE.
+**[NEWS! 2021-07-28]** We provide codes for training CcGAN on **high-resolution** RC-49, UTKFace, and Steering Angle where the resolution varies from **128x128** to **256x256**. We also provide simplified codes for computing NIQE.
 
 --------------------------------------------------------
 
@@ -190,7 +190,7 @@ Folders with name `CcGAN` are for the NLI-based CcGAN. Folders with name `CcGAN-
 `./SteeringAngle/SteeringAngle_64x64/cGAN-concat`: Train cGAN (concat). <br />
 
 ## High-resolution experiments
-In high-resolution experiments, we only compare CcGAN (SVDL+ILI) with cGAN (K classes) and cGAN (concat). For all GANs, we use SAGAN [3] as the backbone. We also use hinge loss [2] and DiffAugment [4].
+In high-resolution experiments, we only compare CcGAN (SVDL+ILI) with cGAN (K classes) and cGAN (concat). For all GANs, we use **SAGAN** [3] as the backbone. We also use **hinge loss** [2] and **DiffAugment** [4].
 
 ### RC-49 (128x128)
 `./RC-49/RC-49_128x128\CcGAN-improved`: Train AE and ResNet-34 for evaluation. Train cGAN (K classes), cGAN (concat) and CcGAN (SVDL+ILI). <br />
