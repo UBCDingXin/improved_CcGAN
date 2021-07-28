@@ -3,6 +3,8 @@
 **[NEWS! 2021-07-27]** We add a new baseline cGAN (concat) which directly appends regression labels to the input of generator and the last hidden map of discriminator. cGAN (K classes) and cGAN (concat) are two modifications on conventional cGANs and they show two types of failures of convention cGANs. <br />
 **[NEWS! 2021-07-28]** We provide codes for training CcGAN on **high-resolution** RC-49, UTKFace, and Steering Angle where the resolution varies from **128x128** to **256x256**. We also provide simplified codes for computing NIQE.
 
+![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) `NEWS`
+
 --------------------------------------------------------
 
 This repository provides the source codes for the experiments in our papers for CcGANs. <br />
