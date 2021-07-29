@@ -325,27 +325,3 @@ if args.visualize_fake_images:
             images_show[i_row*n_col+j_col,:,:,:] = curr_image
     images_show = torch.from_numpy(images_show)
     save_image(images_show.data, filename_fake_images, nrow=n_col, normalize=True)
-
-    # #----------------------------------------------------------------
-    # # dump 1000 images for each count
-    # num_eval_labels = len(displayed_cellcounts)
-    # for i in tqdm(range(num_eval_labels)):
-    #     curr_label = displayed_cellcounts[i]/args.end_count
-    #     curr_fake_images, curr_fake_labels = fn_sampleGAN_given_label(100, curr_label, args.samp_batch_size)
-    #     if i == 0:
-    #         fake_images = curr_fake_images
-    #         fake_labels_assigned = curr_fake_labels.reshape(-1)
-    #     else:
-    #         fake_images = np.concatenate((fake_images, curr_fake_images), axis=0)
-    #         fake_labels_assigned = np.concatenate((fake_labels_assigned, curr_fake_labels.reshape(-1)))
-    #     # dump fake images
-    #     curr_path = save_images_folder + '/{}/{}'.format(args.GAN, int(curr_label*args.end_count))
-    #     os.makedirs(curr_path, exist_ok=True)
-    #     for j in range(len(curr_fake_images)):
-    #         curr_filename = curr_path + '/{}.jpg'.format(j)
-    #         img_j = curr_fake_images[j]
-    #         img_j = ((img_j*0.5+0.5)*255.0).astype(np.uint8)
-    #         img_j_pil = Image.fromarray(img_j[0])
-    #         img_j_pil.save(curr_filename)
-    # #end for i
-
