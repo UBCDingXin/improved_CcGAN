@@ -32,34 +32,34 @@ If you use this code, please cite
 ```
 ├── RC-49
 │   ├── RC-49_64x64
-|   │   ├──CcGAN
-|   |   ├──CcGAN-improved
-|   |   └──cGAN-concat
+│   │   ├──CcGAN
+│   │   ├──CcGAN-improved
+│   │   └──cGAN-concat
 │   ├── RC-49_128x128
-|   |   └──CcGAN-improved
+│   │   └──CcGAN-improved
 │   └── RC-49_256x256
-|       └──CcGAN-improved
+│       └──CcGAN-improved
 ├── UTKFace
 │   ├── UTKFace_64x64
-|   │   ├──CcGAN
-|   │   ├──CcGAN-improved
-|   │   └──cGAN-concat
+│   │   ├──CcGAN
+│   │   ├──CcGAN-improved
+│   │   └──cGAN-concat
 │   ├── UTKFace_128x128
-|   │   └──CcGAN-improved
+│   │   └──CcGAN-improved
 │   └── UTKFace_192x192
-|       └──CcGAN-improved
+│       └──CcGAN-improved
 ├── Cell-200
 │   └── Cell-200_64x64
-|       ├──CcGAN
-|       ├──CcGAN-improved
-|       └──cGAN-concat
+│       ├──CcGAN
+│       ├──CcGAN-improved
+│       └──cGAN-concat
 ├── SteeringAngle
 │   ├── SteeringAngle_64x64
-|   |   ├──CcGAN
-|   |   ├──CcGAN-improved
-|   |   └──cGAN-concat
+│   │   ├──CcGAN
+│   │   ├──CcGAN-improved
+│   │   └──cGAN-concat
 │   └── SteeringAngle_128x128
-|       └──CcGAN-improved
+│       └──CcGAN-improved
 └── NIQE
     ├── RC-49
     │   ├── NIQE_64x64
