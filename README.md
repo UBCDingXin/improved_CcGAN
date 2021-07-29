@@ -211,7 +211,7 @@ In high-resolution experiments, we only compare CcGAN (SVDL+ILI) with cGAN (K cl
 --------------------------------------------------------
 
 # Computing NIQE
-The code for computing NIQE is in `./NIQE`. Let's take RC-49_128x128 (in `./NIQE/RC-49/NIQE_128x128`) as an example. First, create a folder `./NIQE/RC-49/NIQE_128x128/fake_data` where we store the folder concaining fake images generated from a CcGAN or a cGAN. Second, rename the folder containing fake images to `fake_images`, i.e., `./NIQE/RC-49/NIQE_128x128/fake_data/fake_images`. Third, unzip `./NIQE/RC-49/NIQE_128x128/models/unzip_this_file.zip` (containing pre-trained NIQE models). Fourth, run `./NIQE/RC-49/NIQE_128x128/run_test.bat`. Please note that in this directory, we only provide a Windows batch script to run the evaluation. Please modify it to fit Linux system.
+The code for computing NIQE is in `./NIQE`. Let's take RC-49_128x128 (in `./NIQE/RC-49/NIQE_128x128`) as an example. First, create a folder `./NIQE/RC-49/NIQE_128x128/fake_data` where we store the folder that concains fake images generated from a CcGAN or a cGAN. Second, rename the folder that contains fake images to `fake_images`, i.e., `./NIQE/RC-49/NIQE_128x128/fake_data/fake_images`. Third, unzip `./NIQE/RC-49/NIQE_128x128/models/unzip_this_file.zip` (containing pre-trained NIQE models). Fourth, run `./NIQE/RC-49/NIQE_128x128/run_test.bat`. Please note that in this directory, we only provide a Windows batch script to run the evaluation. Please modify it to fit Linux system.
 
 --------------------------------------------------------
 
