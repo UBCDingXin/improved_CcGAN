@@ -501,7 +501,7 @@ if args.comp_FID:
         real_images = images_all
         real_labels = labels_all #not normalized
     # fake_images = (fake_images/255.0-0.5)/0.5
-    
+
 
     #######################
     # For each label take nreal_per_label images
@@ -633,21 +633,23 @@ if args.visualize_fake_images:
     images_show = torch.from_numpy(images_show)
     save_image(images_show.data, filename_fake_images, nrow=n_col, normalize=True)
 
-    # Second, fix z but increase y; check whether there is a continuous change, only for CcGAN
-    n_continuous_labels = 10
-    normalized_continuous_labels = np.linspace(0.05, 0.95, n_continuous_labels)
-    z = torch.randn(1, args.dim_gan, dtype=torch.float).cuda()
-    continuous_images_show = torch.zeros(n_continuous_labels, args.num_channels, args.img_size, args.img_size, dtype=torch.float)
-    netG.eval()
-    with torch.no_grad():
-        for i in range(n_continuous_labels):
-            y = np.ones(1) * normalized_continuous_labels[i]
-            y = torch.from_numpy(y).type(torch.float).view(-1,1).cuda()
-            fake_image_i = netG(z, net_y2h(y))
-            continuous_images_show[i,:,:,:] = fake_image_i.cpu()
-    filename_continous_fake_images = os.path.join(save_images_folder, 'continuous_fake_images_grid.png')
-    save_image(continuous_images_show.data, filename_continous_fake_images, nrow=n_continuous_labels, normalize=True)
-    print("Continuous ys: ", (normalized_continuous_labels*args.max_label))
+
+    if args.GAN == "CcGAN":
+        # Second, fix z but increase y; check whether there is a continuous change, only for CcGAN
+        n_continuous_labels = 10
+        normalized_continuous_labels = np.linspace(0.05, 0.95, n_continuous_labels)
+        z = torch.randn(1, args.dim_gan, dtype=torch.float).cuda()
+        continuous_images_show = torch.zeros(n_continuous_labels, args.num_channels, args.img_size, args.img_size, dtype=torch.float)
+        netG.eval()
+        with torch.no_grad():
+            for i in range(n_continuous_labels):
+                y = np.ones(1) * normalized_continuous_labels[i]
+                y = torch.from_numpy(y).type(torch.float).view(-1,1).cuda()
+                fake_image_i = netG(z, net_y2h(y))
+                continuous_images_show[i,:,:,:] = fake_image_i.cpu()
+        filename_continous_fake_images = os.path.join(save_images_folder, 'continuous_fake_images_grid.png')
+        save_image(continuous_images_show.data, filename_continous_fake_images, nrow=n_continuous_labels, normalize=True)
+        print("Continuous ys: ", (normalized_continuous_labels*args.max_label))
 
 
     ### output some real images as baseline
