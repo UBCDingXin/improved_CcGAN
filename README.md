@@ -1,6 +1,6 @@
 # Continuous Conditional Generative Adversarial Networks
 
-**[UPDATE! 2021-07-27]** We add a new baseline cGAN (concat) which directly appends regression labels to the input of generator and the last hidden map of discriminator. cGAN (K classes) and cGAN (concat) are two modifications on conventional cGANs and they show two types of failures of conventional cGANs. (1) cGAN (K classes) has high label consistency but bad visual quality and intra-label diversity. (2) cGAN (concat) has high intra-label diversity but bad/fair visual quality and terrible label consistency. <br />
+**[UPDATE! 2021-07-27]** We add a new baseline cGAN (concat) which directly appends regression labels to the input of generator and the last hidden map of discriminator. cGAN (K classes) and cGAN (concat) are two modifications on conventional cGANs and they show two types of failures of conventional cGANs. (1) cGAN (K classes) has high label consistency but bad visual quality and low intra-label diversity. (2) cGAN (concat) has high intra-label diversity but bad/fair visual quality and terrible label consistency. <br />
 **[UPDATE! 2021-07-28]** We provide codes for training CcGAN on **high-resolution** RC-49, UTKFace, and Steering Angle where the resolution varies from **128x128** to **256x256**. We also provide simplified codes for computing NIQE.
 
 --------------------------------------------------------
