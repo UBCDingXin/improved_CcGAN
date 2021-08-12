@@ -82,10 +82,9 @@ If you use this code, please cite
 # Hard Vicinal Discriminator Loss (HVDL) and Soft Vicinal Discriminator Loss (SVDL)
 
 <p align="center">
-  <img src="images/UTKFace_192_fake_images_grid_10x10.png">
+  <img src="images/workflow_CcGAN.png">
   The overall workflow of CcGAN. Regression labels are input into the generator and the discriminator by novel label input mechanisms (NLI and ILI). Novel empirical losses (HVDL, SVDL, and a generator loss) are used to train the generator and discriminator. CcGAN can also employ modern GAN architectures (e.g., SNGAN and SAGAN) and training techniques (e.g., DiffAugment).
 </p>
-
 
 <p align="center">
   <img src="images/HVDL_and_SVDL.png">
@@ -101,20 +100,19 @@ An example of the hard vicinity                  |  An example of the soft vicin
 :-------------------------:|:-------------------------:
 ![](images/vanilla_label_input_G.png)  |  ![](images/vanilla_label_input_D.png) -->
 
-NLI for G                  |  
-:-------------------------:|
-![](images/vanilla_label_input_G.png)  |  
-:-------------------------:|
-NLI for D |
-![](images/vanilla_label_input_D.png)
+<p align="center">
+  <img src="images/naive_label_input.png">
+  The workflow of the naive label input (NLI) mechanism.
+</p>
 
 CNN for label embedding in ILI   |  The embedding network in ILI
 :-------------------------:|:-------------------------:
 ![](images/pre-trained_CNN_for_label_embedding.png)  |  ![](images/label_embedding_network.png)
 
-ILI for G                  |  ILI for D
-:-------------------------:|:-------------------------:
-![](images/improved_label_input_G.png)  |  ![](images/improved_label_input_D.png)
+<p align="center">
+  <img src="images/improved_label_input.png">
+  The workflow of the improved label input (ILI) mechanism.
+</p>
 
 
 
