@@ -79,20 +79,28 @@ If you use this code, please cite
 
 --------------------------------------------------------
 
-# Hard Vicinal Discriminator Loss (HVDL) and Soft Vicinal Discriminator Loss (SVDL)
+# The overall workflow of CcGAN
 
 <p align="center">
   <img src="images/workflow_CcGAN.png">
   The overall workflow of CcGAN. Regression labels are input into the generator and the discriminator by novel label input mechanisms (NLI and ILI). Novel empirical losses (HVDL, SVDL, and a generator loss) are used to train the generator and discriminator. CcGAN can also employ modern GAN architectures (e.g., SNGAN and SAGAN) and training techniques (e.g., DiffAugment).
 </p>
 
+--------------------------------------------------------
+
+# Hard Vicinal Discriminator Loss (HVDL) and Soft Vicinal Discriminator Loss (SVDL)
+
 <p align="center">
   <img src="images/HVDL_and_SVDL.png">
+  The formulae for HVDL and SVDL.
 </p>
 
 An example of the hard vicinity                  |  An example of the soft vicinity
 :-------------------------:|:-------------------------:
 ![](images/visualization_HVE.png)  |  ![](images/visualization_SVE.png)
+
+
+--------------------------------------------------------
 
 # Naive Label Input (NLI) and Improved Label Input (ILI) Mechanisms
 
