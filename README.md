@@ -19,10 +19,10 @@ If you use this code, please cite
 }
 
 @article{ding2020continuous,
-  title={Continuous Conditional Generative Adversarial Networks for Image Generation: Novel Losses and Label Input Mechanisms},
+  title={Continuous Conditional Generative Adversarial Networks: Novel Empirical Losses and Label Input Mechanisms},
   author={Xin Ding and Yongwei Wang and Zuheng Xu and William J. Welch and Z. Jane Wang},
   journal={arXiv preprint arXiv:2011.07466},
-  year={2020}
+  year={2021}
 }
 ```
 
