@@ -1,5 +1,6 @@
 # Continuous Conditional Generative Adversarial Networks
 
+**[UPDATE! 2022-12-10]** A journal version of CcGAN is accepted by T-PAMI! <br />
 **[UPDATE! 2021-07-28]** We provide codes for training CcGAN on **high-resolution** RC-49, UTKFace, and Steering Angle where the resolution varies from **128x128** to **256x256**. We also provide simplified codes for computing NIQE. <br />
 **[UPDATE! 2021-07-27]** We add a new baseline cGAN (concat) which directly appends regression labels to the input of generator and the last hidden map of discriminator. cGAN (K classes) and cGAN (concat) are two modifications on conventional cGANs (to fit the regression scenario) and they show two types of failures of conventional cGANs. (1) cGAN (K classes) has high label consistency but bad visual quality and low intra-label diversity. (2) cGAN (concat) has high intra-label diversity but bad/fair visual quality and terrible label consistency. <br />
 **[UPDATE! 2021-01-13]** A conference version of CcGAN is accepted by ICLR 2021. <br />
@@ -9,6 +10,17 @@
 This repository provides the source codes for the experiments in our papers for CcGANs. <br />
 If you use this code, please cite
 ```text
+@ARTICLE{9983478,
+  author={Ding, Xin and Wang, Yongwei and Xu, Zuheng and Welch, William J. and Wang, Z. Jane},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  title={Continuous Conditional Generative Adversarial Networks: Novel Empirical Losses and Label Input Mechanisms},
+  year={2022},
+  volume={},
+  number={},
+  pages={1-16},
+  doi={10.1109/TPAMI.2022.3228915}
+}
+
 @inproceedings{
       ding2021ccgan,
       title={Cc{GAN}: Continuous Conditional Generative Adversarial Networks for Image Generation},
@@ -16,13 +28,6 @@ If you use this code, please cite
       booktitle={International Conference on Learning Representations},
       year={2021},
       url={https://openreview.net/forum?id=PrzjugOsDeE}
-}
-
-@article{ding2020continuous,
-  title={Continuous Conditional Generative Adversarial Networks: Novel Empirical Losses and Label Input Mechanisms},
-  author={Xin Ding and Yongwei Wang and Zuheng Xu and William J. Welch and Z. Jane Wang},
-  journal={arXiv preprint arXiv:2011.07466},
-  year={2021}
 }
 ```
 
