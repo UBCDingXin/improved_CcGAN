@@ -12,12 +12,12 @@ If you use this code, please cite
 ```text
 @ARTICLE{9983478,
   author={Ding, Xin and Wang, Yongwei and Xu, Zuheng and Welch, William J. and Wang, Z. Jane},
-  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
-  title={Continuous Conditional Generative Adversarial Networks: Novel Empirical Losses and Label Input Mechanisms},
-  year={2022},
-  volume={},
-  number={},
-  pages={1-16},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
+  title={Continuous Conditional Generative Adversarial Networks: Novel Empirical Losses and Label Input Mechanisms}, 
+  year={2023},
+  volume={45},
+  number={7},
+  pages={8143-8158},
   doi={10.1109/TPAMI.2022.3228915}
 }
 
