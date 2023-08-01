@@ -1,5 +1,6 @@
 # Continuous Conditional Generative Adversarial Networks
 
+**[UPDATE! 2023-08-01]** We fixed a typo in the codes for computing the Label Score for the Steering Angle (128x128) experiments (the 64x64 experiments are NOT affected). The original evaluation code tends to under-estimate the Label Scores of compared methods. After the fixing, the Label Scores of cGAN (210 classes), cGAN (concat), and CcGAN (SVDL+ILI) are respectively 31.756 (23.005), 42.757 (27.341), and 18.438 (16.072). Fortunately, the conclusion that CcGAN substantially outperforms cGANs is unchanged! <br />
 **[UPDATE! 2022-12-10]** A journal version of CcGAN is accepted by T-PAMI ([link](https://ieeexplore.ieee.org/document/9983478))! <br />
 **[UPDATE! 2021-07-28]** We provide codes for training CcGAN on **high-resolution** RC-49, UTKFace, and Steering Angle where the resolution varies from **128x128** to **256x256**. We also provide simplified codes for computing NIQE. <br />
 **[UPDATE! 2021-07-27]** We add a new baseline cGAN (concat) which directly appends regression labels to the input of generator and the last hidden map of discriminator. cGAN (K classes) and cGAN (concat) are two modifications on conventional cGANs (to fit the regression scenario) and they show two types of failures of conventional cGANs. (1) cGAN (K classes) has high label consistency but bad visual quality and low intra-label diversity. (2) cGAN (concat) has high intra-label diversity but bad/fair visual quality and terrible label consistency. <br />
@@ -11,23 +12,23 @@ This repository provides the source codes for the experiments in our papers for 
 If you use this code, please cite
 ```text
 @ARTICLE{9983478,
-  author={Ding, Xin and Wang, Yongwei and Xu, Zuheng and Welch, William J. and Wang, Z. Jane},
-  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
-  title={Continuous Conditional Generative Adversarial Networks: Novel Empirical Losses and Label Input Mechanisms}, 
-  year={2023},
-  volume={45},
-  number={7},
-  pages={8143-8158},
-  doi={10.1109/TPAMI.2022.3228915}
+    author={Ding, Xin and Wang, Yongwei and Xu, Zuheng and Welch, William J. and Wang, Z. Jane},
+    journal={IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
+    title={Continuous Conditional Generative Adversarial Networks: Novel Empirical Losses and Label Input Mechanisms}, 
+    year={2023},
+    volume={45},
+    number={7},
+    pages={8143-8158},
+    doi={10.1109/TPAMI.2022.3228915}
 }
 
 @inproceedings{
-      ding2021ccgan,
-      title={Cc{GAN}: Continuous Conditional Generative Adversarial Networks for Image Generation},
-      author={Xin Ding and Yongwei Wang and Zuheng Xu and William J Welch and Z. Jane Wang},
-      booktitle={International Conference on Learning Representations},
-      year={2021},
-      url={https://openreview.net/forum?id=PrzjugOsDeE}
+    ding2021ccgan,
+    title={Cc{GAN}: Continuous Conditional Generative Adversarial Networks for Image Generation},
+    author={Xin Ding and Yongwei Wang and Zuheng Xu and William J Welch and Z. Jane Wang},
+    booktitle={International Conference on Learning Representations},
+    year={2021},
+    url={https://openreview.net/forum?id=PrzjugOsDeE}
 }
 ```
 
