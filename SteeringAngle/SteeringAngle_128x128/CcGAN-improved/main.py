@@ -622,7 +622,7 @@ if args.comp_FID:
 
     #####################
     # Overall LS: abs(y_assigned - y_predicted)
-    ls_mean_overall, ls_std_overall = cal_labelscore(PreNetLS, fake_images, fake_labels_assigned, min_label_before_shift=0, max_label_after_shift=args.max_label, batch_size=200, resize = None, norm_img = True, num_workers=args.num_workers)
+    ls_mean_overall, ls_std_overall = cal_labelscore(PreNetLS, fake_images, fake_labels_assigned, min_label_before_shift=min_label_before_shift, max_label_after_shift=max_label_after_shift, batch_size=200, resize = None, norm_img = True, num_workers=args.num_workers)
     print("\n {}: overall LS of {} fake images: {}({}).".format(args.GAN_arch, nfake_all, ls_mean_overall, ls_std_overall))
 
 
